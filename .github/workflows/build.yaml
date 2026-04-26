@@ -40,6 +40,44 @@ jobs:
             exit 1
           fi
 
+      # AGENTS.md "Hard constraints" requires compose.yaml and the Quadlet
+      # unit to keep their resource caps in sync (mcp-proxy + spawned node
+      # children share these limits regardless of which entrypoint the user
+      # picks). Nothing enforced it; this guard does. TasksMax is Quadlet-only
+      # (no compose equivalent) and is intentionally not checked.
+      - name: Guard — compose ↔ Quadlet resource-cap parity
+        run: |
+          set -euo pipefail
+          fail=0
+
+          cmem=$(awk '/^[[:space:]]*mem_limit:/ {print tolower($2)}' compose.yaml)
+          qmem=$(awk -F= '/^MemoryMax=/ {print tolower($2)}' systemd/figma-console-mcp.container)
+          if [ "$cmem" != "$qmem" ]; then
+            echo "::error::mem_limit=$cmem (compose.yaml) != MemoryMax=$qmem (Quadlet)"
+            fail=1
+          fi
+
+          cpids=$(awk '/^[[:space:]]*pids_limit:/ {print $2}' compose.yaml)
+          qpids=$(awk -F= '/^PidsLimit=/ {print $2}' systemd/figma-console-mcp.container)
+          if [ "$cpids" != "$qpids" ]; then
+            echo "::error::pids_limit=$cpids (compose.yaml) != PidsLimit=$qpids (Quadlet)"
+            fail=1
+          fi
+
+          ccpus=$(awk '/^[[:space:]]*cpus:/ {print $2}' compose.yaml)
+          qquota=$(awk -F= '/^CPUQuota=/ {sub(/%/, "", $2); print $2}' systemd/figma-console-mcp.container)
+          expected_quota=$(awk -v c="$ccpus" 'BEGIN{printf "%d", c*100}')
+          if [ "$expected_quota" != "$qquota" ]; then
+            echo "::error::cpus=$ccpus (compose.yaml, =${expected_quota}%) != CPUQuota=${qquota}% (Quadlet)"
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "Update both files together. AGENTS.md '## Hard constraints' documents this rule." >&2
+            exit 1
+          fi
+          echo "OK: mem=$cmem, pids=$cpids, cpus=$ccpus (== ${qquota}%)"
+
       - uses: docker/setup-buildx-action@v4
 
       # docker/build-push-action only takes string named contexts, not host
