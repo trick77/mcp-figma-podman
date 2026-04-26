@@ -1,18 +1,10 @@
 # figma-console-mcp (podman, read-only, streamable-http)
 
-> **Built for enterprise / regulated workstations.** This repo targets the kind of environment you find inside large corporates and government tenants: build hosts behind a TLS-intercepting proxy with corporate root CAs in `/etc/pki/ca-trust/source/anchors/`, rootless podman, systemd-managed services that survive a reboot, and a strong preference for "the AI agent should not be able to read my home directory."
->
-> **What this repo is.** A thin packaging layer that wraps the OSS project [`southleft/figma-console-mcp`](https://github.com/southleft/figma-console-mcp) (community-maintained, third-party — not affiliated with Figma) and ships it as a hardened, long-running podman container suitable for an enterprise workstation. All Figma tools, auth, and protocol handling come from upstream. For server features or bugs, file issues there. For packaging questions (build, install, hardening, network policy), see this README.
->
-> **Why wrap it.** Three reasons:
->
-> 1. **Enterprise build environment.** Upstream is published to npm; pulling it on a corporate-proxied build host means HTTPS to the npm registry and to GitHub goes through a TLS-intercepting proxy. The Containerfile bakes the corporate root CAs from `/etc/pki/ca-trust/source/anchors/` into BOTH the build stage (so `npm ci` / `git clone` succeed) and the runtime stage (so Node's `NODE_EXTRA_CA_CERTS` and Python's `REQUESTS_CA_BUNDLE` actually trust `api.figma.com` when *that* call is intercepted too). Node does not read the system trust store by default — without the runtime import you get `UNABLE_TO_VERIFY_LEAF_SIGNATURE` in production.
-> 2. **Reduced blast radius for the running process.** When an MCP client launches the upstream tool directly via `npx`, it inherits your full user environment: read access to `$HOME`, your SSH keys, your shell history, every browser profile, every other token on disk. This wrapper instead launches the server as a non-root user inside a `--read-only` container with `--cap-drop=ALL`, `--security-opt=no-new-privileges`, no host bind mounts, and only a loopback-bound port. The server can talk to `api.figma.com` with your PAT and that is all it can do. Even a fully compromised upstream release cannot read your `~/.aws/credentials` or rm-rf your repo.
-> 3. **Long-running, systemd-managed lifecycle.** The container is a Quadlet unit that starts at boot and stays up across MCP client restarts. The PAT lives in `.env` (one rotation point, chmod 600) instead of being copy-pasted into every MCP client's config file.
->
-> **About the bridge.** Upstream `dist/local.js` only speaks **stdio**. To run it as a long-running service we bundle [`sparfenyuk/mcp-proxy`](https://github.com/sparfenyuk/mcp-proxy) inside the same container; mcp-proxy listens on `:8000` and spawns one `node /app/dist/local.js` child per MCP client session, bridging its stdio to streamable-http. A native streamable-http transport is tracked upstream as [southleft/figma-console-mcp#48](https://github.com/southleft/figma-console-mcp/issues/48); when it lands, the bridge layer goes away.
+Hardened podman wrapper around [`southleft/figma-console-mcp`](https://github.com/southleft/figma-console-mcp). Built for enterprise workstations: corporate CAs baked in at build time, container is `--read-only` with no host access, PAT lives in `.env` (chmod 600), exposed only on `127.0.0.1:23148`.
 
-See [SECURITY.md](./SECURITY.md) (Swiss German) for a plain-language threat-model walkthrough.
+Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.com/sparfenyuk/mcp-proxy) to expose streamable-http so the container can run as a long-lived Quadlet service. Native streamable-http transport tracked upstream in [#48](https://github.com/southleft/figma-console-mcp/issues/48).
+
+See [SECURITY.md](./SECURITY.md) (Swiss German) for the threat model.
 
 ## Using it (once installed)
 
