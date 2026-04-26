@@ -4,8 +4,6 @@ Hardened podman wrapper around [`southleft/figma-console-mcp`](https://github.co
 
 Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.com/sparfenyuk/mcp-proxy) to expose streamable-http so the container can run as a long-lived Quadlet service. Native streamable-http transport tracked upstream in [#48](https://github.com/southleft/figma-console-mcp/issues/48).
 
-See [SECURITY.md](./SECURITY.md) for the threat model.
-
 ## Using it (once installed)
 
 You don't call any tool by name — OpenCode (or any MCP client) auto-discovers them on connect via `tools/list` and routes the agent there when your prompt mentions Figma. Concretely: just give the agent a Figma URL and say what you want.
@@ -136,8 +134,7 @@ At runtime the container talks to **one** external host:
 
 Cloud Mode and Remote SSE (which use `*.southleft.com`) are upstream features
 we deliberately do not build or invoke — only `dist/local.js` is executed.
-There is no telemetry, no auto-update, no OAuth proxy. See
-[SECURITY.md](./SECURITY.md) for the threat model.
+There is no telemetry, no auto-update, no OAuth proxy.
 
 ## Network posture
 
@@ -204,7 +201,6 @@ Identical flags in `compose.yaml` and `systemd/figma-console-mcp.container` (so 
 ├── systemd/
 │   └── figma-console-mcp.container  # Quadlet unit (templated)
 ├── README.md
-├── SECURITY.md                   # threat model
 └── AGENTS.md                     # rules for coding agents working on this repo
 ```
 
