@@ -12,7 +12,9 @@ echo "Endpoint: ${MCP_URL}"
 
 # --- Sanity-check the endpoint is up. ---
 if command -v curl >/dev/null 2>&1; then
-    if ! curl -fsS -o /dev/null --max-time 3 -X POST -H 'Content-Type: application/json' \
+    if ! curl -fsS -o /dev/null --max-time 3 -X POST \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
             --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"install-check","version":"0"}}}' \
             "$MCP_URL"; then
         echo "WARNING: ${MCP_URL} did not respond. Is the systemd service running?" >&2
