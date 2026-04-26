@@ -22,6 +22,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Verify UPSTREAM_PR_TOKEN is set
+        # Surface a loud warning (not a failure) when the PAT secret is
+        # missing. Without it the auto-PR will open but CI won't run on it,
+        # which is easy to miss in the workflow logs days later.
+        env:
+          UPSTREAM_PR_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }}
+        run: |
+          if [ -z "${UPSTREAM_PR_TOKEN}" ]; then
+            {
+              echo "::warning::UPSTREAM_PR_TOKEN secret is not set. The bump PR will be opened with GITHUB_TOKEN, which by design does NOT trigger build.yaml on the PR — the smoke test will not gate the merge. To fix, create a fine-grained PAT (Contents r/w, Pull requests r/w on this repo) and add it as a repository secret named UPSTREAM_PR_TOKEN."
+            }
+          else
+            echo "UPSTREAM_PR_TOKEN is set; bump PRs will trigger build.yaml normally."
+          fi
+
       - name: Resolve current pin
         id: current
         run: |
