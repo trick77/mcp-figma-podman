@@ -1,9 +1,12 @@
 name: Upstream-Watch
 
-# Polls southleft/figma-console-mcp for a newer release tag than the pin
-# in build.yaml's UPSTREAM_VERSION. If newer, opens a PR that bumps the
-# pin — build.yaml then runs against that PR and smoke-tests the new
-# upstream before you merge.
+# Polls TWO upstream repos for new releases and opens auto-bump PRs:
+#   - southleft/figma-console-mcp  (UPSTREAM_VERSION in build.yaml)
+#   - sparfenyuk/mcp-proxy          (MCP_PROXY_VERSION in Containerfile)
+#
+# Both pins are otherwise invisible to Dependabot's docker ecosystem
+# (which only watches FROM lines). build.yaml runs against the bump PR
+# and smoke-tests the new dependency before you merge.
 #
 # Cron is daily; trigger manually any time via "Run workflow".
 
@@ -126,3 +129,82 @@ jobs:
             - Compare: https://github.com/southleft/figma-console-mcp/compare/${{ steps.current.outputs.version }}...${{ steps.latest.outputs.version }}
 
             CI's smoke test will exercise the new upstream end-to-end (initialize → tools/list → figma_get_status round-trip through mcp-proxy). Review the diff, glance at the smoke-test logs, and merge if green.
+
+  check-mcp-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve current mcp-proxy pin
+        id: current
+        run: |
+          # ARG MCP_PROXY_VERSION=0.10.0 — bare semver (no leading 'v')
+          # because pip's `mcp-proxy==<X>` doesn't take a leading v.
+          cur=$(awk -F= '/^ARG MCP_PROXY_VERSION=/ {print $2}' Containerfile)
+          echo "version=${cur}" >> "$GITHUB_OUTPUT"
+          echo "Current pin: ${cur}"
+
+      - name: Resolve latest mcp-proxy tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Strip the 'v' prefix from the upstream tag to match the
+          # Containerfile ARG format. Same git-tag-not-Releases-API
+          # rationale as the figma-console-mcp watcher.
+          latest=$(gh api --paginate /repos/sparfenyuk/mcp-proxy/tags --jq '.[].name' \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | sort -V | tail -1 | sed 's/^v//')
+          if [ -z "$latest" ]; then
+            echo "::error::No semver tags found on sparfenyuk/mcp-proxy" >&2
+            exit 1
+          fi
+          echo "version=${latest}" >> "$GITHUB_OUTPUT"
+          echo "Latest mcp-proxy tag (normalized): ${latest}"
+
+      - name: Decide whether to PR
+        id: decide
+        run: |
+          cur="${{ steps.current.outputs.version }}"
+          new="${{ steps.latest.outputs.version }}"
+          if [ "$cur" = "$new" ]; then
+            echo "needs_pr=false" >> "$GITHUB_OUTPUT"
+            echo "Already pinned to latest ($cur) — nothing to do."
+            exit 0
+          fi
+          highest=$(printf '%s\n%s\n' "$cur" "$new" | sort -V | tail -1)
+          if [ "$highest" = "$cur" ]; then
+            echo "::warning::Refusing to downgrade: current=$cur newer than discovered=$new" >&2
+            echo "needs_pr=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needs_pr=true" >> "$GITHUB_OUTPUT"
+          echo "Will bump $cur -> $new"
+
+      - name: Bump pin in Containerfile
+        if: steps.decide.outputs.needs_pr == 'true'
+        run: |
+          sed -i "s|^ARG MCP_PROXY_VERSION=.*|ARG MCP_PROXY_VERSION=${{ steps.latest.outputs.version }}|" \
+            Containerfile
+          grep '^ARG MCP_PROXY_VERSION=' Containerfile
+
+      - name: Open / update PR
+        if: steps.decide.outputs.needs_pr == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.UPSTREAM_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: bot/mcp-proxy-bump-${{ steps.latest.outputs.version }}
+          base: master
+          delete-branch: true
+          commit-message: "ci: bump mcp-proxy ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+          title: "mcp-proxy bump: ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+          labels: dependencies, upstream
+          body: |
+            Automated bump of `ARG MCP_PROXY_VERSION` in `Containerfile`.
+
+            - Old: `${{ steps.current.outputs.version }}`
+            - New: `${{ steps.latest.outputs.version }}`
+            - Upstream tag: https://github.com/sparfenyuk/mcp-proxy/releases/tag/v${{ steps.latest.outputs.version }}
+            - Compare: https://github.com/sparfenyuk/mcp-proxy/compare/v${{ steps.current.outputs.version }}...v${{ steps.latest.outputs.version }}
+
+            CI's smoke test will exercise the new mcp-proxy end-to-end (initialize → tools/list → figma_get_status round-trip). Review the diff, glance at the smoke-test logs, and merge if green.
