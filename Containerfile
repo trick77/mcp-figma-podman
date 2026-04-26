@@ -87,7 +87,6 @@ WORKDIR /app
 COPY --from=builder --chown=node:node /src/dist                 /app/dist
 COPY --from=builder --chown=node:node /src/node_modules         /app/node_modules
 COPY --from=builder --chown=node:node /src/package.json         /app/package.json
-COPY --from=builder --chown=node:node /src/figma-desktop-bridge /app/figma-desktop-bridge
 
 USER node
 ENV NODE_ENV=production \
