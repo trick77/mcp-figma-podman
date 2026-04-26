@@ -1,0 +1,91 @@
+name: upstream-watch
+
+# Polls southleft/figma-console-mcp for a newer release tag than the pin
+# in build.yaml's UPSTREAM_VERSION. If newer, opens a PR that bumps the
+# pin — build.yaml then runs against that PR and smoke-tests the new
+# upstream before you merge.
+#
+# Cron is daily; trigger manually any time via "Run workflow".
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # daily at 06:17 UTC (~07:17–08:17 Europe/Zurich)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve current pin
+        id: current
+        run: |
+          cur=$(grep -E '^\s*UPSTREAM_VERSION:' .github/workflows/build.yaml \
+                | sed -E 's/.*UPSTREAM_VERSION:\s*//; s/[[:space:]]+$//')
+          echo "version=${cur}" >> "$GITHUB_OUTPUT"
+          echo "Current pin: ${cur}"
+
+      - name: Resolve latest upstream release
+        id: latest
+        env:
+          # Authenticated GitHub API call avoids the 60/hr unauth rate limit
+          # that bit the build itself earlier.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh release view --repo southleft/figma-console-mcp --json tagName --jq .tagName)
+          echo "version=${latest}" >> "$GITHUB_OUTPUT"
+          echo "Latest upstream release: ${latest}"
+
+      - name: Decide whether to PR
+        id: decide
+        run: |
+          if [ "${{ steps.current.outputs.version }}" = "${{ steps.latest.outputs.version }}" ]; then
+            echo "needs_pr=false" >> "$GITHUB_OUTPUT"
+            echo "Already pinned to latest — nothing to do."
+          else
+            echo "needs_pr=true" >> "$GITHUB_OUTPUT"
+            echo "Will bump ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+          fi
+
+      - name: Bump pin in build.yaml
+        if: steps.decide.outputs.needs_pr == 'true'
+        run: |
+          sed -i "s|UPSTREAM_VERSION: .*|UPSTREAM_VERSION: ${{ steps.latest.outputs.version }}|" \
+            .github/workflows/build.yaml
+          grep UPSTREAM_VERSION .github/workflows/build.yaml
+
+      - name: Open / update PR
+        if: steps.decide.outputs.needs_pr == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # NOTE on the token: the default GITHUB_TOKEN works to OPEN the PR,
+          # but PRs created by GITHUB_TOKEN do NOT trigger downstream
+          # workflows — meaning build.yaml will not run automatically on
+          # this PR, so the smoke test won't gate the bump. To get the
+          # smoke test to run, set a repo secret named UPSTREAM_PR_TOKEN
+          # to a fine-grained PAT with `Contents: read/write` and
+          # `Pull requests: read/write` on this repo, and the action will
+          # use it. If the secret isn't set we fall back to GITHUB_TOKEN
+          # and you'll need to close+reopen the PR (or push a no-op commit)
+          # to kick CI.
+          token: ${{ secrets.UPSTREAM_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: bot/upstream-bump-${{ steps.latest.outputs.version }}
+          base: main
+          delete-branch: true
+          commit-message: "ci: bump upstream figma-console-mcp ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+          title: "Upstream bump: ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+          labels: dependencies, upstream
+          body: |
+            Automated bump of `UPSTREAM_VERSION` in `.github/workflows/build.yaml`.
+
+            - Old: `${{ steps.current.outputs.version }}`
+            - New: `${{ steps.latest.outputs.version }}`
+            - Upstream release: https://github.com/southleft/figma-console-mcp/releases/tag/${{ steps.latest.outputs.version }}
+            - Compare: https://github.com/southleft/figma-console-mcp/compare/${{ steps.current.outputs.version }}...${{ steps.latest.outputs.version }}
+
+            CI's smoke test will exercise the new upstream end-to-end (initialize → tools/list → figma_get_status round-trip through mcp-proxy). Review the diff, glance at the smoke-test logs, and merge if green.
