@@ -22,16 +22,26 @@ if [ -f .env ]; then
     set +a
 fi
 
-# Pick the container engine.
-if command -v podman >/dev/null 2>&1; then
-    ENGINE=podman
-elif command -v docker >/dev/null 2>&1; then
-    ENGINE=docker
-    export DOCKER_BUILDKIT=1
-else
-    echo "ERROR: neither podman nor docker found." >&2
+# Pick the container engine. Override with CONTAINER_ENGINE=docker|podman.
+# On hosts that have both (modern ubuntu-latest CI runners ship both), the
+# default below picks podman — set CONTAINER_ENGINE=docker if the rest of
+# your tooling expects images in docker's local store.
+ENGINE="${CONTAINER_ENGINE:-}"
+if [ -z "$ENGINE" ]; then
+    if command -v podman >/dev/null 2>&1; then
+        ENGINE=podman
+    elif command -v docker >/dev/null 2>&1; then
+        ENGINE=docker
+    else
+        echo "ERROR: neither podman nor docker found." >&2
+        exit 1
+    fi
+fi
+if ! command -v "$ENGINE" >/dev/null 2>&1; then
+    echo "ERROR: requested container engine '$ENGINE' not found." >&2
     exit 1
 fi
+[ "$ENGINE" = "docker" ] && export DOCKER_BUILDKIT=1
 
 # If the corp anchors dir doesn't exist (typical on a developer laptop without
 # the corporate proxy), fall back to an empty dir so the build still succeeds

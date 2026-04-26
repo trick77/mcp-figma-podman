@@ -24,7 +24,12 @@ jobs:
       # Build the image. CI has no corporate CAs; build.sh falls back to an
       # empty anchors dir and warns. The image still builds, just without the
       # corp trust bundle baked in (which is correct for CI).
+      # CONTAINER_ENGINE=docker because modern ubuntu-latest ships both
+      # podman and docker; we need the image in docker's store for the
+      # smoke-test steps below.
       - name: Build image
+        env:
+          CONTAINER_ENGINE: docker
         run: ./scripts/build.sh
 
       - name: Inspect image
