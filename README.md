@@ -4,7 +4,7 @@ Hardened podman wrapper around [`southleft/figma-console-mcp`](https://github.co
 
 Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.com/sparfenyuk/mcp-proxy) to expose streamable-http so the container can run as a long-lived Quadlet service. Native streamable-http transport tracked upstream in [#48](https://github.com/southleft/figma-console-mcp/issues/48).
 
-See [SECURITY.md](./SECURITY.md) (Swiss German) for the threat model.
+See [SECURITY.md](./SECURITY.md) for the threat model.
 
 ## Using it (once installed)
 
@@ -204,7 +204,7 @@ Identical flags in `compose.yaml` and `systemd/figma-console-mcp.container` (so 
 ├── systemd/
 │   └── figma-console-mcp.container  # Quadlet unit (templated)
 ├── README.md
-├── SECURITY.md                   # threat model (Swiss German)
+├── SECURITY.md                   # threat model
 └── AGENTS.md                     # rules for coding agents working on this repo
 ```
 

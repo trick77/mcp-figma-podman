@@ -24,7 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
 
       # docker/build-push-action only takes string named contexts, not host
@@ -206,8 +205,12 @@ jobs:
         run: docker rm -f figma-ci 2>/dev/null || true
 
       # Publish only on push to master, after smoke test. Same builder +
-      # same cache scope as the amd64 build above, so the amd64 layers are
-      # reused as-is and only arm64 is built fresh.
+      # same cache scope as the amd64 build above, so every layer is a cache
+      # hit — the publish step is essentially just a registry push.
+      #
+      # amd64-only by design: arm64 builds under QEMU emulation are 5–10×
+      # slower than native and we have no native arm64 runner here. If an
+      # arm64 image is needed later, run scripts/build.sh on an arm64 host.
       #
       # IMPORTANT: this image is built in CI, which has no corporate root
       # CAs. It is suitable for non-corporate users and as a known-good

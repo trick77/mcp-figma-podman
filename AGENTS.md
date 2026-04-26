@@ -2,7 +2,7 @@
 
 This file provides guidance to coding agents working in this repository.
 
-This repo is a thin podman wrapper around upstream `southleft/figma-console-mcp`. It contains no application code — only a `Containerfile`, a `compose.yaml`, an `.env.example`, a Quadlet unit, and shell scripts under `scripts/`. Read `README.md` for the user-facing build/install/run flow and `SECURITY.md` (Swiss German) for the threat model; this file captures rules that aren't obvious from the code.
+This repo is a thin podman wrapper around upstream `southleft/figma-console-mcp`. It contains no application code — only a `Containerfile`, a `compose.yaml`, an `.env.example`, a Quadlet unit, and shell scripts under `scripts/`. Read `README.md` for the user-facing build/install/run flow and `SECURITY.md` for the threat model; this file captures rules that aren't obvious from the code.
 
 ## Architecture in one paragraph
 

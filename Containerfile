@@ -37,7 +37,13 @@ RUN set -eux; \
 # Only the local stdio target — `npm run build` also tries the Cloudflare
 # Worker and Vite app targets, which we don't ship and which have upstream TS
 # errors we shouldn't try to fix from a wrapper repo.
-RUN npm ci && npm run build:local && npm prune --omit=dev
+#
+# `--mount=type=cache,target=/root/.npm` lets BuildKit reuse the npm package
+# cache across builds (and, with cache-to=gha mode=max in CI, across runs).
+# `--prefer-offline` consults the cache before the registry; with a warm
+# cache `npm ci` becomes CPU-bound instead of download-bound.
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
+    npm ci --prefer-offline && npm run build:local && npm prune --omit=dev
 
 # --- runtime stage ---
 # Node + Python 3 in one image. Node runs the upstream stdio MCP server
