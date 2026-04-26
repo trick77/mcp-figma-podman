@@ -1,4 +1,4 @@
-name: upstream-watch
+name: Upstream-Watch
 
 # Polls southleft/figma-console-mcp for a newer release tag than the pin
 # in build.yaml's UPSTREAM_VERSION. If newer, opens a PR that bumps the
