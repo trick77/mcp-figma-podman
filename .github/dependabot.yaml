@@ -1,0 +1,37 @@
+version: 2
+
+updates:
+  # Bump pinned action versions in .github/workflows/*.yaml.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  # Bump base images in the Containerfile (currently node:22-slim).
+  # Note: this does NOT track upstream southleft/figma-console-mcp git tags
+  # — that's a manual ./scripts/update.sh <vX.Y.Z> bump. Dependabot has no
+  # ecosystem for "arbitrary git tag in a Containerfile ARG".
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Zurich
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+      include: scope
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
