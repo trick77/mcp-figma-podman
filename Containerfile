@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git ca-certificates curl && \
@@ -44,7 +44,7 @@ RUN npm ci && npm run build:local && npm prune --omit=dev
 # streamable-http transport. Until that lands, this proxy lets us run the
 # server as a long-running, Quadlet-managed service like other enterprise
 # MCP wrappers.
-FROM node:20-slim
+FROM node:22-slim
 
 ARG MCP_PROXY_VERSION=0.10.0
 

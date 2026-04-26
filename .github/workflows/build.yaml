@@ -99,7 +99,7 @@ jobs:
 
           # ASSERTION 3: a node child for /app/dist/local.js actually exists
           # inside the container — proof that mcp-proxy spawned the bridged
-          # process, not just that an HTTP endpoint is alive. node:20-slim
+          # process, not just that an HTTP endpoint is alive. node:22-slim
           # has no `ps`/`pgrep`, so read /proc directly. We need /proc/PID/comm
           # == "node" (a real node process, not python3 with "node" in its
           # argv) AND the cmdline to mention local.js.
@@ -136,7 +136,9 @@ jobs:
             -H "mcp-session-id: $sid" \
             --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
             --max-time 5)
-          echo "$tools" | head -c 2000; echo
+          # Avoid `echo "$tools" | head -c 2000` — head closes the pipe
+          # early, echo gets EPIPE, and bash -e aborts the script.
+          printf '%.2000s\n' "$tools"
 
           # ASSERTION 4: tools/list returned figma_* entries — only possible
           # if the child handled the request and the response came back
@@ -159,7 +161,7 @@ jobs:
             -H "mcp-session-id: $sid" \
             --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"figma_get_status","arguments":{}}}' \
             --max-time 10)
-          echo "$status" | head -c 1500; echo
+          printf '%.1500s\n' "$status"
 
           if ! printf '%s' "$status" | grep -qE '"jsonrpc":"2\.0".*"id":3'; then
             echo "FAIL: figma_get_status did not return a JSON-RPC response" >&2
@@ -187,3 +189,66 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
           shellcheck scripts/*.sh
+
+  publish:
+    # Publish to ghcr.io after the smoke test passes.
+    #
+    # IMPORTANT: this image is built in CI, which has no corporate root CAs.
+    # It is suitable for non-corporate users and as a known-good baseline.
+    # Enterprises behind a TLS-intercepting proxy MUST still run
+    # ./scripts/build.sh on a host with /etc/pki/ca-trust/source/anchors/
+    # populated — pulling this published image will not give them working
+    # TLS to api.figma.com through their proxy.
+    needs: [build-and-smoke-test, shellcheck]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          image="ghcr.io/${owner}/figma-console-mcp"
+          tags="${image}:sha-${GITHUB_SHA::7}"
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            tags="${tags},${image}:main"
+          fi
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            v="${GITHUB_REF#refs/tags/}"
+            tags="${tags},${image}:${v},${image}:latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+          echo "Will push: ${tags}"
+
+      # docker/build-push-action only takes string named contexts, not host
+      # paths. The Containerfile expects a `hostcerts` build context — we feed
+      # it an empty dir so the CA-import RUN steps no-op. Real corp builds
+      # use scripts/build.sh on a RHEL host instead.
+      - name: Prepare empty hostcerts context
+        run: mkdir -p /tmp/empty-hostcerts
+
+      - name: Build and push (linux/amd64, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          build-contexts: |
+            hostcerts=/tmp/empty-hostcerts
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          provenance: false

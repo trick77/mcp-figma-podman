@@ -29,7 +29,7 @@ Upstream `dist/local.js` is a stdio-only MCP server. To run it as a long-running
 
 - Build stage clones `southleft/figma-console-mcp` at the tag from `ARG VERSION` (default `latest`, resolved via the GitHub releases API).
 - The CA-import `RUN --mount=type=bind,source=/host-anchors,...` block appears in BOTH stages. The runtime copy is load-bearing — without it, `NODE_EXTRA_CA_CERTS` points at a bundle missing the corp CAs and `api.figma.com` calls fail behind a TLS-intercepting proxy.
-- The runtime image is intentionally Node 20 + Python 3 (for mcp-proxy in a venv at `/opt/mcp-proxy`). Don't switch to a single-language base; you'd lose either the upstream code or the bridge.
+- The runtime image is intentionally Node 22 + Python 3 (for mcp-proxy in a venv at `/opt/mcp-proxy`). Don't switch to a single-language base; you'd lose either the upstream code or the bridge.
 - Runtime user is `node` (uid 1000). Don't switch back to root.
 - `mcp-proxy` is pinned via `ARG MCP_PROXY_VERSION`; bump it deliberately, not on every build.
 - ENTRYPOINT runs `mcp-proxy --host 0.0.0.0 --port 8000 --pass-environment -- node /app/dist/local.js`. **Do not add `--stateless`** — without it, sessions are tracked and one node child serves a whole client session; with it, every HTTP request is independent and node spawns are unbounded.
