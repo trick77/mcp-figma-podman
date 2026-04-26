@@ -45,27 +45,49 @@ jobs:
           echo "version=${cur}" >> "$GITHUB_OUTPUT"
           echo "Current pin: ${cur}"
 
-      - name: Resolve latest upstream release
+      - name: Resolve latest upstream tag
         id: latest
         env:
-          # Authenticated GitHub API call avoids the 60/hr unauth rate limit
-          # that bit the build itself earlier.
+          # Authenticated to avoid the 60/hr unauth rate limit.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest=$(gh release view --repo southleft/figma-console-mcp --json tagName --jq .tagName)
+          # Use the GIT TAG list, not the Releases API — upstream cuts tags
+          # (e.g. v1.22.2, v1.22.3) without always creating a Release object,
+          # so `gh release view` returns a stale "latest" and would propose a
+          # DOWNGRADE. Tags are the authoritative source of versioned code.
+          # Pick the highest by semver (sort -V), restricted to vN.N.N form.
+          latest=$(gh api --paginate /repos/southleft/figma-console-mcp/tags --jq '.[].name' \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | sort -V | tail -1)
+          if [ -z "$latest" ]; then
+            echo "::error::No semver tags found on southleft/figma-console-mcp" >&2
+            exit 1
+          fi
           echo "version=${latest}" >> "$GITHUB_OUTPUT"
-          echo "Latest upstream release: ${latest}"
+          echo "Latest upstream tag: ${latest}"
 
       - name: Decide whether to PR
         id: decide
         run: |
-          if [ "${{ steps.current.outputs.version }}" = "${{ steps.latest.outputs.version }}" ]; then
+          cur="${{ steps.current.outputs.version }}"
+          new="${{ steps.latest.outputs.version }}"
+          if [ "$cur" = "$new" ]; then
             echo "needs_pr=false" >> "$GITHUB_OUTPUT"
-            echo "Already pinned to latest — nothing to do."
-          else
-            echo "needs_pr=true" >> "$GITHUB_OUTPUT"
-            echo "Will bump ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+            echo "Already pinned to latest ($cur) — nothing to do."
+            exit 0
           fi
+          # Refuse to downgrade. semver-sort cur and new; if cur is the
+          # higher one, bail out — upstream may have moved its "latest"
+          # release pointer backwards (rare but possible) and we should
+          # never silently regress.
+          highest=$(printf '%s\n%s\n' "$cur" "$new" | sort -V | tail -1)
+          if [ "$highest" = "$cur" ]; then
+            echo "::warning::Refusing to downgrade: current=$cur newer than discovered=$new" >&2
+            echo "needs_pr=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "needs_pr=true" >> "$GITHUB_OUTPUT"
+          echo "Will bump $cur -> $new"
 
       - name: Bump pin in build.yaml
         if: steps.decide.outputs.needs_pr == 'true'
