@@ -226,16 +226,31 @@ jobs:
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           image="ghcr.io/${owner}/figma-console-mcp"
-          tags="${image}:sha-${GITHUB_SHA::7}"
-          if [ "${GITHUB_REF}" = "refs/heads/master" ]; then
-            tags="${tags},${image}:master"
-          fi
+          # Build a SemVer-pre-release-style timestamp tag tied to the
+          # upstream version we baked in. Example: v1.22.3-20260426T1650Z.
+          # - Sortable lexicographically.
+          # - Immutable (each build gets its own minute-precision tag).
+          # - SemVer-valid: "v1.22.3-20260426T1650Z" parses with the date as
+          #   the pre-release identifier.
+          ts=$(date -u +%Y%m%dT%H%MZ)
+          versioned="${{ env.UPSTREAM_VERSION }}-${ts}"
+
+          # Every released image gets all three:
+          #  :<upstream>-<utc-timestamp>   immutable per-build artifact
+          #  :<upstream>                   moves to latest build of THIS upstream version
+          #  :latest                       moves to latest published build, period
+          tags="${image}:${versioned},${image}:${{ env.UPSTREAM_VERSION }},${image}:latest"
+
+          # On wrapper-repo git tag push (vY.Y.Y of THIS repo, distinct from
+          # the upstream version): also tag :<wrapper-tag>.
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            v="${GITHUB_REF#refs/tags/}"
-            tags="${tags},${image}:${v},${image}:latest"
+            wrapper_tag="${GITHUB_REF#refs/tags/}"
+            tags="${tags},${image}:${wrapper_tag}"
           fi
+
           echo "tags=${tags}" >> "$GITHUB_OUTPUT"
-          echo "Will push: ${tags}"
+          echo "Will push:"
+          printf '  %s\n' ${tags//,/ }
 
       - name: Build amd64+arm64 and push (amd64 reused from cache)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
