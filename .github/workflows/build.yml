@@ -1,0 +1,181 @@
+name: build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build the image. CI has no corporate CAs; build.sh falls back to an
+      # empty anchors dir and warns. The image still builds, just without the
+      # corp trust bundle baked in (which is correct for CI).
+      - name: Build image
+        run: ./scripts/build.sh
+
+      - name: Inspect image
+        run: |
+          docker images localhost/figma-console-mcp
+          docker run --rm --entrypoint sh localhost/figma-console-mcp:local -c '
+            echo "=== user ==="; id
+            echo "=== node ==="; node --version
+            echo "=== mcp-proxy ==="; mcp-proxy --help | head -5
+            echo "=== ca bundle cert count ==="
+            awk "/-----BEGIN CERTIFICATE-----/{c++} END{print c}" /etc/ssl/certs/ca-certificates.crt
+            echo "=== NODE_EXTRA_CA_CERTS ==="; echo "$NODE_EXTRA_CA_CERTS"
+            echo "=== /app contents ==="; ls /app
+          '
+
+      - name: Smoke test — start container, MCP initialize, tools/list
+        run: |
+          set -euo pipefail
+          docker rm -f figma-ci 2>/dev/null || true
+          docker run -d --name figma-ci \
+            --read-only \
+            --tmpfs /tmp \
+            --tmpfs /home/node/.figma-console-mcp \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            -p 127.0.0.1:23148:8000 \
+            -e FIGMA_ACCESS_TOKEN=figd_dummy_for_ci \
+            localhost/figma-console-mcp:local
+
+          echo ">> Waiting for mcp-proxy to start"
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null --max-time 1 -X POST http://127.0.0.1:23148/mcp \
+              -H 'Content-Type: application/json' \
+              -H 'Accept: application/json, text/event-stream' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}'; then
+              echo ">> Endpoint responding after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          echo ">> initialize"
+          init_resp=$(curl -sNi -X POST http://127.0.0.1:23148/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            --max-time 5)
+          echo "$init_resp"
+
+          # ASSERTION 1: response came from the bridged upstream child, not
+          # from mcp-proxy fabricating something. serverInfo.name is set by
+          # dist/local.js — if mcp-proxy weren't actually piping JSON-RPC to
+          # the spawned node child and back, this string would not appear.
+          if ! printf '%s' "$init_resp" | grep -q '"name":"Figma Console MCP (Local)"'; then
+            echo "FAIL: initialize did not return upstream serverInfo.name — bridge not forwarding to child" >&2
+            exit 1
+          fi
+          echo ">> bridge confirmed: serverInfo from upstream child"
+
+          # ASSERTION 2: mcp-proxy issued an mcp-session-id (session tracking on).
+          sid=$(printf '%s\n' "$init_resp" | awk 'BEGIN{IGNORECASE=1}/^mcp-session-id:/{print $2}' | tr -d '\r')
+          if [ -z "$sid" ]; then
+            echo "FAIL: no mcp-session-id header in initialize response" >&2
+            exit 1
+          fi
+          echo ">> session: $sid"
+
+          # ASSERTION 3: a node child for /app/dist/local.js actually exists
+          # inside the container — proof that mcp-proxy spawned the bridged
+          # process, not just that an HTTP endpoint is alive. node:20-slim
+          # has no `ps`/`pgrep`, so read /proc directly. We need /proc/PID/comm
+          # == "node" (a real node process, not python3 with "node" in its
+          # argv) AND the cmdline to mention local.js.
+          if ! docker exec figma-ci sh -c '
+            for d in /proc/[0-9]*; do
+              [ "$(cat "$d/comm" 2>/dev/null)" = "node" ] || continue
+              tr "\0" " " < "$d/cmdline" 2>/dev/null | grep -q "local.js" && exit 0
+            done
+            exit 1
+          '; then
+            echo "FAIL: no upstream node child running in container" >&2
+            docker exec figma-ci sh -c '
+              for d in /proc/[0-9]*; do
+                printf "%s\tcomm=%s\tcmdline=" "$d" "$(cat "$d/comm" 2>/dev/null)"
+                tr "\0" " " < "$d/cmdline" 2>/dev/null
+                echo
+              done
+            ' || true
+            exit 1
+          fi
+          echo ">> bridge confirmed: real node child running with local.js"
+
+          curl -sN -X POST http://127.0.0.1:23148/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -H "mcp-session-id: $sid" \
+            --data '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            --max-time 5
+
+          echo ">> tools/list"
+          tools=$(curl -sN -X POST http://127.0.0.1:23148/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -H "mcp-session-id: $sid" \
+            --data '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            --max-time 5)
+          echo "$tools" | head -c 2000; echo
+
+          # ASSERTION 4: tools/list returned figma_* entries — only possible
+          # if the child handled the request and the response came back
+          # through the bridge.
+          if ! printf '%s' "$tools" | grep -q '"name":"figma_'; then
+            echo "FAIL: tools/list did not include any figma_* tool" >&2
+            exit 1
+          fi
+
+          # ASSERTION 5: full round-trip on a real tool call. figma_get_status
+          # is no-arg and doesn't require a valid PAT, so it executes purely
+          # inside the upstream code without hitting api.figma.com. If this
+          # returns a JSON-RPC result, every link in the chain
+          # (HTTP → mcp-proxy → stdin → node → stdout → mcp-proxy → HTTP)
+          # actually carried bytes.
+          echo ">> tools/call figma_get_status"
+          status=$(curl -sN -X POST http://127.0.0.1:23148/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -H "mcp-session-id: $sid" \
+            --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"figma_get_status","arguments":{}}}' \
+            --max-time 10)
+          echo "$status" | head -c 1500; echo
+
+          if ! printf '%s' "$status" | grep -qE '"jsonrpc":"2\.0".*"id":3'; then
+            echo "FAIL: figma_get_status did not return a JSON-RPC response" >&2
+            exit 1
+          fi
+          if printf '%s' "$status" | grep -q '"error"'; then
+            echo "FAIL: figma_get_status returned a JSON-RPC error" >&2
+            exit 1
+          fi
+          echo ">> OK — bridge round-trip verified end-to-end"
+
+      - name: Container logs (always)
+        if: always()
+        run: docker logs figma-ci 2>&1 | tail -100 || true
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f figma-ci 2>/dev/null || true
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck on scripts/
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck scripts/*.sh

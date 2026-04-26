@@ -1,0 +1,20 @@
+services:
+  figma-console-mcp:
+    image: localhost/figma-console-mcp:local
+    container_name: figma-console-mcp
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:23148:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/node/.figma-console-mcp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0

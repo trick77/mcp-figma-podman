@@ -1,0 +1,36 @@
+# Quadlet unit for rootless podman. Install with `scripts/install-systemd.sh`,
+# which substitutes __ENV_FILE__ with the absolute path to your .env.
+#
+# Quadlet generates a systemd .service unit at daemon-reload time. Manage it
+# via `systemctl --user <start|stop|status|restart> figma-console-mcp.service`.
+
+[Unit]
+Description=figma-console-mcp (Figma read-only via mcp-proxy bridge)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=figma-console-mcp
+Image=localhost/figma-console-mcp:local
+EnvironmentFile=__ENV_FILE__
+PublishPort=127.0.0.1:23148:8000
+ReadOnly=true
+Tmpfs=/tmp
+Tmpfs=/home/node/.figma-console-mcp
+NoNewPrivileges=true
+DropCapability=ALL
+# Resource ceilings for the whole container (mcp-proxy + all spawned node
+# children combined). Tune if you hit OOM kills or "fork failed" in journald.
+PidsLimit=64
+
+[Service]
+Restart=always
+RestartSec=5
+# Hard caps. Quadlet passes [Service] through to systemd directly.
+MemoryMax=512M
+MemorySwapMax=0
+CPUQuota=100%
+TasksMax=128
+
+[Install]
+WantedBy=default.target
