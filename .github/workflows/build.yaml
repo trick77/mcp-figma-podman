@@ -24,6 +24,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Hard guard: this image is amd64-only on purpose.
+      # arm64 cross-builds under qemu added ~3 minutes per release for an
+      # audience that doesn't exist (the workstations this targets are amd64).
+      # qemu is intentionally NOT installed below, so an accidental arm64
+      # `platforms:` would already fail at buildkit time — this step turns
+      # that into a clearer message and catches it pre-build.
+      - name: Guard — refuse arm64 in workflow
+        run: |
+          if grep -nE 'platforms:.*arm64' .github/workflows/build.yaml; then
+            echo "::error::This wrapper is amd64-only by design. Remove the arm64 platform reference before merging." >&2
+            exit 1
+          fi
+
       - uses: docker/setup-buildx-action@v4
 
       # docker/build-push-action only takes string named contexts, not host
