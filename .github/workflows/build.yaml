@@ -212,7 +212,7 @@ jobs:
       # you want CRITICAL findings to be PR-blocking.
       - name: Trivy vulnerability scan (image)
         if: always() && hashFiles('Containerfile') != ''
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: localhost/figma-console-mcp:local
           format: sarif
@@ -235,7 +235,7 @@ jobs:
       # docker.sock, etc. Same non-blocking posture as the image scan.
       - name: Trivy misconfig scan (repo)
         if: always()
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: .
