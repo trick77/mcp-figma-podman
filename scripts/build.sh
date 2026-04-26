@@ -58,9 +58,12 @@ fi
 
 VERSION_TAG="${VERSION:-latest}"
 
-BUILD_ARGS=()
-[ -n "${NPM_REGISTRY:-}" ] && BUILD_ARGS+=(--build-arg "NPM_REGISTRY=${NPM_REGISTRY}")
-[ -n "${VERSION:-}" ]      && BUILD_ARGS+=(--build-arg "VERSION=${VERSION}")
+# Default to the public npmjs registry; .env (or the caller's env) can
+# override with a corp mirror.
+NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmjs.org/}"
+
+BUILD_ARGS=(--build-arg "NPM_REGISTRY=${NPM_REGISTRY}")
+[ -n "${VERSION:-}" ] && BUILD_ARGS+=(--build-arg "VERSION=${VERSION}")
 
 echo ">> Building ${IMAGE_NAME} via ${ENGINE} (anchors: ${HOST_ANCHORS}, version: ${VERSION_TAG})"
 $ENGINE build \

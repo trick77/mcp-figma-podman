@@ -48,6 +48,7 @@ jobs:
             hostcerts=/tmp/empty-hostcerts
           build-args: |
             VERSION=${{ env.UPSTREAM_VERSION }}
+            NPM_REGISTRY=https://registry.npmjs.org/
           platforms: linux/amd64
           load: true
           tags: localhost/figma-console-mcp:local
@@ -255,6 +256,7 @@ jobs:
             hostcerts=/tmp/empty-hostcerts
           build-args: |
             VERSION=${{ env.UPSTREAM_VERSION }}
+            NPM_REGISTRY=https://registry.npmjs.org/
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}

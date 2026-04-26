@@ -16,8 +16,12 @@ RUN --mount=type=bind,from=hostcerts,target=/host-anchors,ro \
     done && \
     update-ca-certificates
 
-ARG NPM_REGISTRY=https://registry.npmjs.org/
-RUN npm config set registry "$NPM_REGISTRY" && \
+# NPM_REGISTRY must be passed in by the caller (scripts/build.sh, the CI
+# workflow, or `.env`). No default here on purpose — having a "fallback"
+# meant two places knew the default and the .env override felt cosmetic.
+ARG NPM_REGISTRY
+RUN test -n "$NPM_REGISTRY" || { echo "Error: NPM_REGISTRY build-arg is required" >&2; exit 1; } && \
+    npm config set registry "$NPM_REGISTRY" && \
     npm ping || { echo "Error: Cannot reach npm registry at ${NPM_REGISTRY}" >&2; exit 1; }
 
 ARG VERSION=latest
