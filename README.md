@@ -116,14 +116,16 @@ Read-only Figma API tools:
 
 ## What does NOT work (by design)
 
-- All write operations (creating frames, editing variables, posting comments, etc.)
+- All write operations (create / update / delete / arrange / post)
 - FigJam / Slides creation
 - Desktop Bridge tools: console logs, screenshots, `figma_execute`
 
-Writes are blocked twice over:
+Note that `tools/list` will still **advertise** these — upstream's `dist/local.js` registers its full tool set unconditionally and the wrapper does not filter the list. They fail at *call* time, not at *list* time:
 
-1. **No transport.** The Desktop Bridge plugin is never installed and the container has no path to a Figma Desktop instance. Any tool that relies on the bridge fails immediately.
-2. **Least-privilege PAT.** Even if something tried to hit Figma's REST API with a write call, Figma rejects it server-side because the token has no write scopes.
+1. **Bridge tools have no peer.** `figma_execute`, `figma_get_console_logs`, `figma_take_screenshot`, etc. depend on a Desktop Bridge WebSocket connection to a running Figma Desktop. The wrapper never starts that listener and the bridge plugin source isn't copied into the runtime image, so a bridge call has nothing to connect to.
+2. **REST writes lack scope.** `figma_create_*`, `figma_post_comment`, `figma_update_*`, etc. ultimately hit `api.figma.com`. The PAT in `.env` carries only read scopes, so Figma rejects writes server-side with 403.
+
+An agent may try a write tool, get a clear error back, and move on — that's the intended behavior.
 
 ## No third-party endpoints
 
