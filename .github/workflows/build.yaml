@@ -40,7 +40,7 @@ jobs:
       # portion of the multi-arch push is essentially free — only arm64
       # under qemu is fresh work.
       - name: Build amd64 (load + cache)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Containerfile
@@ -239,7 +239,7 @@ jobs:
 
       - name: Build amd64+arm64 and push (amd64 reused from cache)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Containerfile
