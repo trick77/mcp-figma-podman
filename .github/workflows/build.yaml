@@ -249,7 +249,7 @@ jobs:
           echo "Will push:"
           printf '  %s\n' ${tags//,/ }
 
-      - name: Build amd64+arm64 and push (amd64 reused from cache)
+      - name: Build amd64 and push (reused from cache)
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: docker/build-push-action@v7
         with:
@@ -260,7 +260,7 @@ jobs:
           build-args: |
             VERSION=${{ env.UPSTREAM_VERSION }}
             NPM_REGISTRY=https://registry.npmjs.org/
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=build
