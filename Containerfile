@@ -114,6 +114,15 @@ ENV NODE_ENV=production \
 
 EXPOSE 8000
 
+# TCP-only readiness probe: confirms mcp-proxy is listening on :8000.
+# Deliberately NOT a JSON-RPC `initialize` — that creates a session and spawns
+# a node child per healthcheck (mcp-proxy tracks sessions), wasting PIDs and
+# polluting logs. A wedged proxy that has stopped accepting TCP connections
+# is the failure mode worth catching here; deeper bridge wedges are rare and
+# would still surface to the MCP client as a stalled request.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD python3 -c "import socket,sys; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',8000))" || exit 1
+
 # mcp-proxy spawns one `node /app/dist/local.js` child per MCP client session
 # (NOT per request — sessions are tracked, so OpenCode + Cursor + Claude Code
 # concurrently = 3 long-lived node processes, not N-per-tool-call).

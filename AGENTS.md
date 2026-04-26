@@ -33,6 +33,7 @@ Upstream `dist/local.js` is a stdio-only MCP server. To run it as a long-running
 - Runtime user is `node` (uid 1000). Don't switch back to root.
 - `mcp-proxy` is pinned via `ARG MCP_PROXY_VERSION`; bump it deliberately, not on every build.
 - ENTRYPOINT runs `mcp-proxy --host 0.0.0.0 --port 8000 --pass-environment -- node /app/dist/local.js`. **Do not add `--stateless`** — without it, sessions are tracked and one node child serves a whole client session; with it, every HTTP request is independent and node spawns are unbounded.
+- HEALTHCHECK is a **TCP-only** probe of `127.0.0.1:8000`, mirrored by the Quadlet `HealthCmd=`. Don't promote it to a JSON-RPC `initialize` call — that would spawn a node child per probe (mcp-proxy creates a session per `initialize`), wasting PIDs and noise.
 
 ## Updates
 
