@@ -30,6 +30,9 @@ jobs:
       - name: Build image
         env:
           CONTAINER_ENGINE: docker
+          # Pin VERSION so we don't hit api.github.com unauthenticated and
+          # eat a 403 from the rate limiter mid-build. Bump deliberately.
+          VERSION: v1.27.0
         run: ./scripts/build.sh
 
       - name: Inspect image
@@ -248,6 +251,10 @@ jobs:
           file: Containerfile
           build-contexts: |
             hostcerts=/tmp/empty-hostcerts
+          # Same VERSION pin as the smoke-test build — avoids the
+          # unauthenticated GitHub API rate limit at build time.
+          build-args: |
+            VERSION=v1.27.0
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}

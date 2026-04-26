@@ -16,6 +16,38 @@
 
 See [SECURITY.md](./SECURITY.md) (Swiss German) for a plain-language threat-model walkthrough.
 
+## Using it (once installed)
+
+You don't call any tool by name — OpenCode (or any MCP client) auto-discovers them on connect via `tools/list` and routes the agent there when your prompt mentions Figma. Concretely: just give the agent a Figma URL and say what you want.
+
+Useful prompt shape:
+
+1. **The file** — paste a Figma URL (`https://www.figma.com/file/<KEY>/<NAME>` or `https://www.figma.com/design/<KEY>/<NAME>`).
+2. **What to extract** — variables, styles, components, file structure, design-system parity, etc.
+3. **What to do with it** — summarize, generate a token JSON, compare to a code path, draft a doc, etc.
+
+Examples that route to the right tools:
+
+```
+Pull the color and spacing variables from
+https://www.figma.com/file/AbC123XyZ/Design-System
+and emit them as a Tailwind theme extension.
+```
+
+```
+Get the components in https://www.figma.com/design/AbC123XyZ/Design-System
+that contain the word "Button". For each, list its variants and which
+props they expose.
+```
+
+```
+For the file at https://www.figma.com/file/AbC123XyZ/Design-System,
+check whether the tokens match the values in src/tokens.css and
+flag any drift.
+```
+
+What the agent has access to (full list under [What works](#what-works) below): variables, styles, components, component sets, file data, design-system kit, design-code parity. All read-only — see [What does NOT work (by design)](#what-does-not-work-by-design).
+
 ## Prerequisites
 
 - `podman` ≥ 4.4 (RHEL 9.3+ is fine)
@@ -37,19 +69,30 @@ See [SECURITY.md](./SECURITY.md) (Swiss German) for a plain-language threat-mode
 cp .env.example .env
 $EDITOR .env                       # set FIGMA_ACCESS_TOKEN, optionally pin VERSION
 ./scripts/build.sh
-./scripts/install-systemd.sh       # rootless Quadlet, starts service at boot
+podman-compose up -d               # start the service
 ./scripts/install-opencode.sh      # writes the OpenCode MCP entry
 ```
 
 Then restart OpenCode. The MCP server appears as `figma-console-mcp` and points at `http://127.0.0.1:23148/mcp`.
 
-Manage afterwards:
+Day-to-day:
 
 ```sh
-systemctl --user status   figma-console-mcp.service
-systemctl --user restart  figma-console-mcp.service
+podman-compose ps
+podman-compose logs -f
+podman-compose restart
+podman-compose down
+```
+
+For boot-time auto-start (rootless Quadlet, recommended for workstations that should have the service available without logging in):
+
+```sh
+./scripts/install-systemd.sh       # one-shot: linger, drop Quadlet, enable
+systemctl --user status figma-console-mcp.service
 journalctl --user -u figma-console-mcp.service -f
 ```
+
+Use **either** podman-compose **or** the Quadlet — not both at once on the same machine, they'd collide on the container name and the published port.
 
 ## How it works (1-minute version)
 
@@ -64,8 +107,10 @@ One MCP client session = one persistent node child. Three concurrent clients = t
 ## Updates
 
 ```sh
-./scripts/update.sh v1.22.3       # any tag from southleft/figma-console-mcp releases
-systemctl --user restart figma-console-mcp.service
+./scripts/update.sh v1.22.3                 # any tag from southleft/figma-console-mcp releases
+podman-compose up -d --force-recreate       # pick up the new image
+# or, if running via Quadlet:
+# systemctl --user restart figma-console-mcp.service
 ```
 
 `update.sh` writes `VERSION=v1.22.3` into `.env`, rebuilds the image with fresh corporate CAs, and prunes dangling layers. `podman auto-update` is **intentionally not used** — the image is built on a controlled host, never pulled at runtime.
@@ -140,13 +185,15 @@ podman exec figma-console-mcp node -e \
 # expect: HTTP 200 (auth succeeded). 401/403 means PAT is bad. cert error = CA chain not validated.
 ```
 
-## Hardening (applied by Quadlet / compose)
+## Hardening
 
-- `read-only` rootfs. Two throwaway tmpfs mounts (`/tmp`, `/home/node/.figma-console-mcp`) discarded on container exit.
+Identical flags in `compose.yaml` and `systemd/figma-console-mcp.container` (so podman-compose and Quadlet both apply them). Don't `podman run` this image directly — you'd lose the hardening; always go through compose or the Quadlet.
+
+- `read_only` rootfs. Two throwaway tmpfs mounts (`/tmp`, `/home/node/.figma-console-mcp`) discarded on container exit.
 - `cap_drop: ALL`, `no-new-privileges`. Runs as non-root `node` user.
 - No host bind mounts. The server cannot read your `$HOME`, SSH keys, or any other on-disk credentials.
-- Resource ceilings: `MemoryMax=512M`, `CPUQuota=100%`, `PidsLimit=64`. mcp-proxy + every spawned node child combined cannot exceed these.
-- Loopback-only port publish.
+- Resource ceilings: `mem_limit=512M`, `cpus=1.0`, `pids_limit=64` (and the matching `MemoryMax`/`CPUQuota`/`PidsLimit` in the Quadlet). mcp-proxy + every spawned node child combined cannot exceed these.
+- Loopback-only port publish (`127.0.0.1:23148`).
 
 ## File permissions note
 
