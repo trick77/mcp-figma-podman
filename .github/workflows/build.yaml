@@ -189,7 +189,22 @@ jobs:
             exit 1
           fi
 
-          # ASSERTION 5: full round-trip on a real tool call. figma_get_status
+          # ASSERTION 5: no write/mutation tools advertised. The threat model
+          # claims writes are blocked at the transport layer (no Desktop Bridge
+          # tools exposed) AND at the token layer (read-only PAT). This checks
+          # the transport claim — defense-in-depth means this should hold even
+          # if a future upstream change accidentally re-exposes a mutation
+          # tool. Denylist (not allowlist) so adding a new READ tool upstream
+          # doesn't break CI.
+          write_re='"name":"figma_(create|post|update|delete|arrange|execute|set|send|write|modify|add|remove|batch_create)(_|")'
+          if printf '%s' "$tools" | grep -qE "$write_re"; then
+            echo "FAIL: tools/list advertised a write/mutation tool — transport-layer block has regressed" >&2
+            printf '%s' "$tools" | grep -oE "$write_re[^\"]*\"" >&2 || true
+            exit 1
+          fi
+          echo ">> transport block confirmed: no write tools in tools/list"
+
+          # ASSERTION 6: full round-trip on a real tool call. figma_get_status
           # is no-arg and doesn't require a valid PAT, so it executes purely
           # inside the upstream code without hitting api.figma.com. If this
           # returns a JSON-RPC result, every link in the chain
