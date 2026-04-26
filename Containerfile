@@ -58,6 +58,21 @@ FROM node:22-slim
 
 ARG MCP_PROXY_VERSION=0.10.0
 
+# OCI image metadata. VERSION mirrors the build-stage ARG so a published image
+# carries the upstream tag it was built from. GIT_SHA / IMAGE_SOURCE come from
+# CI (see .github/workflows/build.yaml) and default to placeholders for local
+# builds — `unknown` is fine for dev images and clearly signals "not from CI".
+ARG VERSION=latest
+ARG GIT_SHA=unknown
+ARG IMAGE_SOURCE=https://github.com/trick77/mcp-figma-podman
+
+LABEL org.opencontainers.image.title="figma-console-mcp" \
+      org.opencontainers.image.description="Hardened podman wrapper around southleft/figma-console-mcp (read-only Figma MCP over streamable-http)" \
+      org.opencontainers.image.source="$IMAGE_SOURCE" \
+      org.opencontainers.image.revision="$GIT_SHA" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.licenses="MIT"
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \

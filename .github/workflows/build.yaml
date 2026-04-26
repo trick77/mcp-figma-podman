@@ -64,6 +64,8 @@ jobs:
           build-args: |
             VERSION=${{ env.UPSTREAM_VERSION }}
             NPM_REGISTRY=https://registry.npmjs.org/
+            GIT_SHA=${{ github.sha }}
+            IMAGE_SOURCE=https://github.com/${{ github.repository }}
           platforms: linux/amd64
           load: true
           tags: localhost/figma-console-mcp:local
@@ -276,6 +278,8 @@ jobs:
           build-args: |
             VERSION=${{ env.UPSTREAM_VERSION }}
             NPM_REGISTRY=https://registry.npmjs.org/
+            GIT_SHA=${{ github.sha }}
+            IMAGE_SOURCE=https://github.com/${{ github.repository }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
