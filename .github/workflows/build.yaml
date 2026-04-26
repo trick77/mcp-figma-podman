@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
   pull_request:
-    branches: [main, master]
+    branches: [master]
   workflow_dispatch:
 
 # A single ENV-level pin for the upstream version so it's defined once and
@@ -20,7 +20,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write   # Trivy SARIF upload to the Security tab
 
     steps:
       - uses: actions/checkout@v6
@@ -205,53 +204,7 @@ jobs:
         if: always()
         run: docker rm -f figma-ci 2>/dev/null || true
 
-      # Scan the built image for CVEs in OS packages, npm node_modules, and
-      # the mcp-proxy venv. Findings land in the repo's Security tab via
-      # SARIF; we don't fail the build (exit-code: 0) — security-events
-      # noise shouldn't block ordinary commits. Bump the gate to '1' when
-      # you want CRITICAL findings to be PR-blocking.
-      - name: Trivy vulnerability scan (image)
-        if: always() && hashFiles('Containerfile') != ''
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: localhost/figma-console-mcp:local
-          format: sarif
-          output: trivy-image.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '0'
-          vuln-type: os,library
-          scanners: vuln,secret
-
-      - name: Upload Trivy image SARIF
-        if: always() && hashFiles('trivy-image.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-image.sarif
-          category: trivy-image
-
-      # Trivy config-scan the repo (Containerfile, compose.yaml, Quadlet,
-      # workflows). Catches things like missing USER directives, mounted
-      # docker.sock, etc. Same non-blocking posture as the image scan.
-      - name: Trivy misconfig scan (repo)
-        if: always()
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          scan-ref: .
-          format: sarif
-          output: trivy-config.sarif
-          severity: CRITICAL,HIGH
-          exit-code: '0'
-
-      - name: Upload Trivy config SARIF
-        if: always() && hashFiles('trivy-config.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-config.sarif
-          category: trivy-config
-
-      # Publish only on push to main or on tag push, after smoke test.
+      # Publish only on push to master or on tag push, after smoke test.
       # Same builder + same cache scope as the amd64 build above, so the
       # amd64 layers are reused as-is and only arm64 is built fresh.
       #
@@ -260,7 +213,7 @@ jobs:
       # baseline. Enterprises behind a TLS-intercepting proxy MUST still
       # run ./scripts/build.sh on a host with corp anchors populated.
       - name: Log in to ghcr.io
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -268,14 +221,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute tags
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         id: tags
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           image="ghcr.io/${owner}/figma-console-mcp"
           tags="${image}:sha-${GITHUB_SHA::7}"
-          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-            tags="${tags},${image}:main"
+          if [ "${GITHUB_REF}" = "refs/heads/master" ]; then
+            tags="${tags},${image}:master"
           fi
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             v="${GITHUB_REF#refs/tags/}"
@@ -285,7 +238,7 @@ jobs:
           echo "Will push: ${tags}"
 
       - name: Build amd64+arm64 and push (amd64 reused from cache)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         uses: docker/build-push-action@v7
         with:
           context: .

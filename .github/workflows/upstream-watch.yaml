@@ -90,7 +90,7 @@ jobs:
           # to kick CI.
           token: ${{ secrets.UPSTREAM_PR_TOKEN || secrets.GITHUB_TOKEN }}
           branch: bot/upstream-bump-${{ steps.latest.outputs.version }}
-          base: main
+          base: master
           delete-branch: true
           commit-message: "ci: bump upstream figma-console-mcp ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
           title: "Upstream bump: ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
