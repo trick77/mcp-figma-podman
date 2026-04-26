@@ -2,8 +2,6 @@
 
 > **Built for enterprise / regulated workstations.** This repo targets the kind of environment you find inside large corporates and government tenants: build hosts behind a TLS-intercepting proxy with corporate root CAs in `/etc/pki/ca-trust/source/anchors/`, rootless podman, systemd-managed services that survive a reboot, and a strong preference for "the AI agent should not be able to read my home directory."
 >
-> If you're on a personal laptop with no corporate proxy and you trust the upstream Node process to run loose on your machine, you don't need this repo — `npx figma-console-mcp@latest` works fine on its own.
->
 > **What this repo is.** A thin packaging layer that wraps the OSS project [`southleft/figma-console-mcp`](https://github.com/southleft/figma-console-mcp) (community-maintained, third-party — not affiliated with Figma) and ships it as a hardened, long-running podman container suitable for an enterprise workstation. All Figma tools, auth, and protocol handling come from upstream. For server features or bugs, file issues there. For packaging questions (build, install, hardening, network policy), see this README.
 >
 > **Why wrap it.** Three reasons:
