@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Build the local figma-console-mcp image with corporate CAs baked in.
-# Run on a host where /etc/pki/ca-trust/source/anchors/ holds the
-# intercepting-proxy root CA(s). The CAs are imported in BOTH the build
-# stage (so npm/git over HTTPS work) and the runtime stage (so Node's
-# NODE_EXTRA_CA_CERTS sees them when calling api.figma.com).
+# CAs are imported in BOTH the build stage (so npm/git over HTTPS work) and
+# the runtime stage (so Node's NODE_EXTRA_CA_CERTS sees them when calling
+# api.figma.com).
 #
 # Works with both podman and docker (BuildKit) — the host CA dir is passed
 # as a named build context, not a host bind mount.
@@ -12,7 +11,27 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 IMAGE_NAME="figma-console-mcp"
-HOST_ANCHORS="${HOST_ANCHORS:-/etc/pki/ca-trust/source/anchors}"
+
+# Probe the well-known anchor source dirs across distros, first hit wins.
+# Override with HOST_ANCHORS=/path/to/dir.
+#
+#   /etc/pki/ca-trust/source/anchors/      RHEL / Fedora / CentOS / Rocky
+#   /usr/local/share/ca-certificates/      Debian / Ubuntu (.crt only)
+#   /etc/ca-certificates/trust-source/anchors/   Arch
+HOST_ANCHORS_CANDIDATES=(
+    /etc/pki/ca-trust/source/anchors
+    /usr/local/share/ca-certificates
+    /etc/ca-certificates/trust-source/anchors
+)
+if [ -z "${HOST_ANCHORS:-}" ]; then
+    for d in "${HOST_ANCHORS_CANDIDATES[@]}"; do
+        if [ -d "$d" ]; then
+            HOST_ANCHORS="$d"
+            break
+        fi
+    done
+fi
+HOST_ANCHORS="${HOST_ANCHORS:-/etc/pki/ca-trust/source/anchors}"   # last-resort default for the warning path
 
 # Load .env if present (build-time overrides only; never put secrets here).
 if [ -f .env ]; then
