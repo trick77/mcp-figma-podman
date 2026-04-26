@@ -7,33 +7,53 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+# A single ENV-level pin for the upstream version so it's defined once and
+# referenced by both the smoke-test build and the multi-arch publish build.
+# Bump deliberately; CI is rate-limited if you let "latest" hit the API.
+env:
+  UPSTREAM_VERSION: v1.22.3
+
 jobs:
-  build-and-smoke-test:
+  build-test-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v5
 
-      # NOTE: deliberately NOT using docker/setup-buildx-action — its default
-      # builder uses containerd-image-store and doesn't load built images into
-      # the local docker daemon, so the smoke test below can't `docker run`
-      # the image. The runner's default docker has BuildKit enabled and
-      # loads to the daemon, which is exactly what we need.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
 
-      # Build the image. CI has no corporate CAs; build.sh falls back to an
-      # empty anchors dir and warns. The image still builds, just without the
-      # corp trust bundle baked in (which is correct for CI).
-      # CONTAINER_ENGINE=docker because modern ubuntu-latest ships both
-      # podman and docker; we need the image in docker's store for the
-      # smoke-test steps below.
-      - name: Build image
-        env:
-          CONTAINER_ENGINE: docker
-          # Pin VERSION so we don't hit api.github.com unauthenticated and
-          # eat a 403 from the rate limiter mid-build. Bump deliberately.
-          VERSION: v1.22.3
-        run: ./scripts/build.sh
+      # docker/build-push-action only takes string named contexts, not host
+      # paths. The Containerfile expects a `hostcerts` build context — feed
+      # it an empty dir so the CA-import RUN steps no-op. Real corp builds
+      # use scripts/build.sh on a RHEL host instead.
+      - name: Prepare empty hostcerts context
+        run: mkdir -p /tmp/empty-hostcerts
+
+      # Build amd64 once, load into the local docker daemon for the smoke
+      # test, and push the result to the GHA build cache. The publish step
+      # below reuses this exact cache (same builder, same scope) so the amd64
+      # portion of the multi-arch push is essentially free — only arm64
+      # under qemu is fresh work.
+      - name: Build amd64 (load + cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          build-contexts: |
+            hostcerts=/tmp/empty-hostcerts
+          build-args: |
+            VERSION=${{ env.UPSTREAM_VERSION }}
+          platforms: linux/amd64
+          load: true
+          tags: localhost/figma-console-mcp:local
+          cache-from: type=gha,scope=build
+          cache-to: type=gha,scope=build,mode=max
+          provenance: false
 
       - name: Inspect image
         run: |
@@ -184,37 +204,16 @@ jobs:
         if: always()
         run: docker rm -f figma-ci 2>/dev/null || true
 
-  shellcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Run shellcheck on scripts/
-        run: |
-          sudo apt-get update && sudo apt-get install -y shellcheck
-          shellcheck scripts/*.sh
-
-  publish:
-    # Publish to ghcr.io after the smoke test passes.
-    #
-    # IMPORTANT: this image is built in CI, which has no corporate root CAs.
-    # It is suitable for non-corporate users and as a known-good baseline.
-    # Enterprises behind a TLS-intercepting proxy MUST still run
-    # ./scripts/build.sh on a host with /etc/pki/ca-trust/source/anchors/
-    # populated — pulling this published image will not give them working
-    # TLS to api.figma.com through their proxy.
-    needs: [build-and-smoke-test, shellcheck]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
+      # Publish only on push to main or on tag push, after smoke test.
+      # Same builder + same cache scope as the amd64 build above, so the
+      # amd64 layers are reused as-is and only arm64 is built fresh.
+      #
+      # IMPORTANT: this image is built in CI, which has no corporate root
+      # CAs. It is suitable for non-corporate users and as a known-good
+      # baseline. Enterprises behind a TLS-intercepting proxy MUST still
+      # run ./scripts/build.sh on a host with corp anchors populated.
       - name: Log in to ghcr.io
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -222,6 +221,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute tags
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         id: tags
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
@@ -237,25 +237,28 @@ jobs:
           echo "tags=${tags}" >> "$GITHUB_OUTPUT"
           echo "Will push: ${tags}"
 
-      # docker/build-push-action only takes string named contexts, not host
-      # paths. The Containerfile expects a `hostcerts` build context — we feed
-      # it an empty dir so the CA-import RUN steps no-op. Real corp builds
-      # use scripts/build.sh on a RHEL host instead.
-      - name: Prepare empty hostcerts context
-        run: mkdir -p /tmp/empty-hostcerts
-
-      - name: Build and push (linux/amd64, linux/arm64)
+      - name: Build amd64+arm64 and push (amd64 reused from cache)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Containerfile
           build-contexts: |
             hostcerts=/tmp/empty-hostcerts
-          # Same VERSION pin as the smoke-test build — avoids the
-          # unauthenticated GitHub API rate limit at build time.
           build-args: |
-            VERSION=v1.22.3
+            VERSION=${{ env.UPSTREAM_VERSION }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha,scope=build
+          cache-to: type=gha,scope=build,mode=max
           provenance: false
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run shellcheck on scripts/
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck scripts/*.sh
