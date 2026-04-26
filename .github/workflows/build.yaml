@@ -31,8 +31,11 @@ jobs:
       # `platforms:` would already fail at buildkit time — this step turns
       # that into a clearer message and catches it pre-build.
       - name: Guard — refuse arm64 in workflow
+        # Match only real YAML `platforms:` keys (leading whitespace + key
+        # + value), not narrative comments or the literal regex pattern in
+        # this guard itself.
         run: |
-          if grep -nE 'platforms:.*arm64' .github/workflows/build.yaml; then
+          if grep -nE '^[[:space:]]+platforms:[[:space:]]+linux/[^#]*arm64' .github/workflows/build.yaml; then
             echo "::error::This wrapper is amd64-only by design. Remove the arm64 platform reference before merging." >&2
             exit 1
           fi
