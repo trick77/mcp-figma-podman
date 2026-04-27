@@ -1,3 +1,20 @@
 .env
 .env.bak
 *.local
+
+# IDEs / editors
+.idea/
+*.iml
+.vscode/
+.vs/
+.fleet/
+.zed/
+.history/
+*.swp
+*.swo
+.nvim.lua
+.nvimrc
+
+# OS
+.DS_Store
+Thumbs.db

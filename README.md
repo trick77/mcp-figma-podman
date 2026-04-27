@@ -71,6 +71,29 @@ Use **either** podman-compose **or** the Quadlet — not both at once on the sam
 
 One client session = one node child. `TasksMax=128` (Quadlet) / `pids_limit=64` (compose) apply across mcp-proxy and all spawned children.
 
+## Rotating the PAT
+
+Figma personal access tokens expire after 90 days max — rotation is routine, not exceptional. Mint a new read-only token at https://www.figma.com/developers/api#access-tokens, then:
+
+```sh
+$EDITOR ~/.config/figma-console-mcp.env       # or wherever your .env lives
+                                              # (compose: <repo>/.env)
+
+# Pick the one that matches how you started the service:
+systemctl --user restart figma-console-mcp.service       # Quadlet
+podman-compose restart                                   # compose
+```
+
+Verify the new token works:
+
+```sh
+podman exec figma-console-mcp node -e \
+  "require('https').get('https://api.figma.com/v1/me', { headers: { 'X-Figma-Token': process.env.FIGMA_ACCESS_TOKEN }}, r => console.log('HTTP', r.statusCode))"
+# expect: HTTP 200
+```
+
+`install-opencode.sh` prints the exact env-file path it detected at install time — re-run it any time to remind yourself.
+
 ## Updates
 
 If you're using the prebuilt image:
@@ -121,7 +144,7 @@ Port published as `127.0.0.1:23148:8000` in both `compose.yaml` and the Quadlet 
 
 ```sh
 ss -ltn 'sport = :23148'                          # only 127.0.0.1:23148 (and/or [::1]:23148)
-curl -i http://127.0.0.1:23148/mcp                # works from the host
+curl -i http://127.0.0.1:23148/mcp                # 406 = reachable (no Accept header)
 curl -i http://<host-external-ip>:23148/mcp       # connection refused
 ```
 

@@ -67,6 +67,13 @@ echo ">> Updated ${OPENCODE_CONFIG}"
 echo ""
 echo "Restart OpenCode and verify 'figma-console-mcp' appears in the MCP server list."
 echo ""
-echo "Note: the FIGMA_ACCESS_TOKEN now lives in .env (read by the systemd unit),"
-echo "      not in ${OPENCODE_CONFIG}. To rotate, edit .env and:"
-echo "        systemctl --user restart figma-console-mcp.service"
+# Resolve the env-file path the installed Quadlet unit actually reads, so the
+# rotation hint points at the right file regardless of where the user put it.
+QUADLET_UNIT="${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd/figma-console-mcp.container"
+if [ -f "$QUADLET_UNIT" ]; then
+    ENV_FILE_PATH=$(awk -F= '/^EnvironmentFile=/ {print $2; exit}' "$QUADLET_UNIT")
+else
+    ENV_FILE_PATH="<your .env>"
+fi
+echo "To rotate FIGMA_ACCESS_TOKEN, edit ${ENV_FILE_PATH} and:"
+echo "    systemctl --user restart figma-console-mcp.service"
