@@ -11,7 +11,7 @@ Wants=network-online.target
 
 [Container]
 ContainerName=figma-console-mcp
-Image=localhost/figma-console-mcp:local
+Image=ghcr.io/trick77/figma-console-mcp:latest
 EnvironmentFile=__ENV_FILE__
 PublishPort=127.0.0.1:23148:8000
 ReadOnly=true

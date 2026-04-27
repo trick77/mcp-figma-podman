@@ -40,9 +40,6 @@ What the agent has access to (full list under [What works](#what-works) below): 
 
 - `podman` ≥ 4.4 (RHEL 9.3+ is fine)
 - `podman-compose` ≥ 1.0.6 (only if you want to run via compose; Quadlet doesn't need it)
-- A build host with corporate root CA(s) in `/etc/pki/ca-trust/source/anchors/`
-  (override with `HOST_ANCHORS=/path/to/anchors`; the dir may be empty on a
-  non-corporate host).
 - A **read-only** Figma personal access token. Create at
   https://www.figma.com/developers/api#access-tokens and grant ONLY:
   - File content: **Read-only**
@@ -53,13 +50,16 @@ What the agent has access to (full list under [What works](#what-works) below): 
 
 ## First-time setup
 
+`compose.yaml` and the Quadlet unit reference the prebuilt amd64 image at `ghcr.io/trick77/figma-console-mcp:latest`. Podman pulls it on first start.
+
 ```sh
 cp .env.example .env
-$EDITOR .env                       # set FIGMA_ACCESS_TOKEN, optionally pin VERSION
-./scripts/build.sh
-podman-compose up -d               # start the service
+$EDITOR .env                       # set FIGMA_ACCESS_TOKEN
+podman-compose up -d               # pulls + starts
 ./scripts/install-opencode.sh      # writes the OpenCode MCP entry
 ```
+
+> **Behind a TLS-intercepting corporate proxy?** The published image has no corporate CAs baked in, so api.figma.com calls will fail with cert errors. Build locally instead — see [Building from source](#building-from-source).
 
 Then restart OpenCode. The MCP server appears as `figma-console-mcp` and points at `http://127.0.0.1:23148/mcp`.
 
@@ -84,7 +84,7 @@ Use **either** podman-compose **or** the Quadlet — not both at once on the sam
 
 ## How it works (1-minute version)
 
-1. Quadlet boots `localhost/figma-console-mcp:local` and publishes `127.0.0.1:23148:8000`.
+1. Quadlet boots `ghcr.io/trick77/figma-console-mcp:latest` and publishes `127.0.0.1:23148:8000`.
 2. Inside the container, `mcp-proxy` listens on `:8000`.
 3. OpenCode reads `~/.config/opencode/opencode.json`, sees the remote MCP entry, opens a streamable-http connection to `http://127.0.0.1:23148/mcp`, sends `initialize` → `tools/list`.
 4. mcp-proxy spawns `node /app/dist/local.js` for that session, with `FIGMA_ACCESS_TOKEN` already in env (forwarded from `.env` via `--pass-environment`). The child enumerates tools and serves `tools/call`s for the rest of the session.
@@ -94,14 +94,21 @@ One MCP client session = one persistent node child. Three concurrent clients = t
 
 ## Updates
 
+If you're using the prebuilt image:
+
 ```sh
-./scripts/update.sh v1.22.3                 # any tag from southleft/figma-console-mcp releases
-podman-compose up -d --force-recreate       # pick up the new image
-# or, if running via Quadlet:
-# systemctl --user restart figma-console-mcp.service
+podman pull ghcr.io/trick77/figma-console-mcp:latest
+podman-compose up -d --force-recreate       # or: systemctl --user restart figma-console-mcp.service
 ```
 
-`update.sh` writes `VERSION=v1.22.3` into `.env`, rebuilds the image with fresh corporate CAs, and prunes dangling layers. `podman auto-update` is **intentionally not used** — the image is built on a controlled host, never pulled at runtime.
+If you build locally:
+
+```sh
+./scripts/update.sh v1.22.3                 # any tag from southleft/figma-console-mcp releases
+podman-compose up -d --force-recreate       # or: systemctl --user restart figma-console-mcp.service
+```
+
+`update.sh` writes `VERSION=v1.22.3` into `.env`, rebuilds the image with fresh corporate CAs, and prunes dangling layers. `podman auto-update` is **intentionally not used** — the image is built/pulled on a controlled host, never refreshed at runtime.
 
 ## What works
 
@@ -156,7 +163,7 @@ If you ever need cross-host access, do not change the bind to `0.0.0.0` — fron
 
 ```sh
 # 1. Image built with corp CAs (count certs in the runtime bundle).
-podman run --rm --entrypoint sh localhost/figma-console-mcp:local -c \
+podman run --rm --entrypoint sh ghcr.io/trick77/figma-console-mcp:latest -c \
   'awk "/-----BEGIN CERTIFICATE-----/{c++} END{print c\" certs in bundle\"}" /etc/ssl/certs/ca-certificates.crt'
 
 # 2. Service is up.
@@ -206,12 +213,33 @@ Identical flags in `compose.yaml` and `systemd/figma-console-mcp.container` (so 
 └── AGENTS.md                     # rules for coding agents working on this repo
 ```
 
+## Building from source
+
+Use this path if you're behind a TLS-intercepting corporate proxy (the prebuilt CI image has no corp CAs baked in), if you want to pin a different upstream version, or if you simply prefer to build on a host you control.
+
+Extra prerequisites for building:
+
+- A build host with corporate root CA(s) in `/etc/pki/ca-trust/source/anchors/`
+  (RHEL/Fedora). Debian/Ubuntu and Arch paths are auto-detected; override with
+  `HOST_ANCHORS=/path/to/anchors`. The dir may be empty on a non-corporate host —
+  `build.sh` will warn and produce an image without corp CAs.
+
+```sh
+cp .env.example .env
+$EDITOR .env                       # set FIGMA_ACCESS_TOKEN, optionally pin VERSION
+./scripts/build.sh
+podman-compose up -d
+./scripts/install-opencode.sh
+```
+
+`build.sh` works with both podman and docker (override with `CONTAINER_ENGINE=docker`). It tags the build as `ghcr.io/trick77/figma-console-mcp:latest` (same name compose.yaml and the Quadlet reference), so the local image transparently shadows the registry one — no further config changes needed.
+
 ## Uninstall
 
 ```sh
 systemctl --user disable --now figma-console-mcp.service
 rm ~/.config/containers/systemd/figma-console-mcp.container
 systemctl --user daemon-reload
-podman rmi localhost/figma-console-mcp:local
+podman rmi ghcr.io/trick77/figma-console-mcp:latest
 # Remove "figma-console-mcp" from .mcp in ~/.config/opencode/opencode.json
 ```
