@@ -34,6 +34,15 @@ Dump the full file structure of
 https://www.figma.com/file/AbC123XyZ/Design-System as a tree.
 ```
 
+```
+Implement the screen at https://www.figma.com/design/AbC123XyZ/Checkout?node-id=12-345
+as an Angular component, mapping each Figma component instance to the
+matching Suvaux component in libs/suvaux. Match spacing and colors to the
+design tokens from the same file.
+```
+
+The last example combines two information sources: the agent uses this MCP for the Figma side (frames, instances, fills, auto-layout, tokens) and its own file/grep tools for the Suvaux side (Angular component APIs in your local repo). This MCP does not read your filesystem.
+
 Available read-only tools (the agent picks one per request): `figma_get_variables`, `figma_get_styles`, `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`, `figma_get_file_data`, `figma_get_file_for_plugin`, `figma_get_design_system_kit`, `figma_check_design_parity`, `figma_generate_component_doc`, `figma_get_status`. Write/Bridge tools are advertised but fail at call time — see [What does NOT work](#what-does-not-work-by-design). Tool reference and capability detail: [southleft/figma-console-mcp](https://github.com/southleft/figma-console-mcp).
 
 ## Prerequisites
