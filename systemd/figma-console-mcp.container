@@ -34,7 +34,6 @@ HealthOnFailure=kill
 
 [Service]
 Restart=no
-CPUQuota=100%
 TasksMax=128
 
 [Install]
