@@ -35,7 +35,7 @@ HealthOnFailure=kill
 
 [Service]
 Restart=always
-RestartSec=5
+RestartSec=300
 CPUQuota=100%
 TasksMax=128
 
