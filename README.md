@@ -6,33 +6,7 @@ Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.co
 
 ## Using it
 
-Paste a Figma file URL (`https://www.figma.com/file/<KEY>/...` or `.../design/<KEY>/...`) into your inference client and tell it what you want. Examples:
-
-```
-Pull all color and spacing variables from
-https://www.figma.com/design/AbC123XyZ/Design-System
-and emit them as a Tailwind theme extension.
-```
-
-```
-List every component in https://www.figma.com/design/AbC123XyZ/Design-System
-whose name contains "Button". For each, give variants and exposed props.
-```
-
-```
-Compare the tokens in https://www.figma.com/design/AbC123XyZ/Design-System
-against src/tokens.css and report drift.
-```
-
-```
-Generate MDX component docs for the Card component in
-https://www.figma.com/design/AbC123XyZ/Design-System.
-```
-
-```
-Dump the full file structure of
-https://www.figma.com/file/AbC123XyZ/Design-System as a tree.
-```
+Paste a Figma file URL (`https://www.figma.com/file/<KEY>/...` or `.../design/<KEY>/...`) into your inference client and tell it what you want. Example:
 
 ```
 Implement the screen at https://www.figma.com/design/AbC123XyZ/Checkout?node-id=12-345
@@ -41,9 +15,9 @@ matching Suvaux component in libs/suvaux. Match spacing and colors to the
 design tokens from the same file.
 ```
 
-The last example combines two information sources: the agent uses this MCP for the Figma side (frames, instances, fills, auto-layout, tokens) and its own file/grep tools for the Suvaux side (Angular component APIs in your local repo). This MCP does not read your filesystem.
+The agent uses this MCP for the Figma side (frames, instances, fills, auto-layout, tokens) and its own file/grep tools for the code side (Angular component APIs in your local repo). This MCP does not read your filesystem.
 
-Available read-only tools (the agent picks one per request): `figma_get_variables`, `figma_get_styles`, `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`, `figma_get_file_data`, `figma_get_file_for_plugin`, `figma_get_design_system_kit`, `figma_check_design_parity`, `figma_generate_component_doc`, `figma_get_status`. Write/Bridge tools are advertised but fail at call time — see [What does NOT work](#what-does-not-work-by-design). Tool reference and capability detail: [southleft/figma-console-mcp](https://github.com/southleft/figma-console-mcp).
+Tool reference and capability detail: [southleft/figma-console-mcp](https://github.com/southleft/figma-console-mcp). Write/Bridge tools are advertised but fail at call time — see [What does NOT work](#what-does-not-work-by-design).
 
 ## Prerequisites
 
