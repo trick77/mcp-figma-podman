@@ -50,9 +50,11 @@ curl -fsSL https://raw.githubusercontent.com/trick77/mcp-figma-podman/master/sys
 # 3. Allow this user's systemd to run after logout / on boot.
 sudo loginctl enable-linger "$USER"
 
-# 4. Generate the service from the Quadlet and start it.
+# 4. Generate the service from the Quadlet and start it. Quadlet-generated
+#    units can't be `enable`d — boot-time autostart is wired by the [Install]
+#    section inside the .container file itself.
 systemctl --user daemon-reload
-systemctl --user enable --now figma-console-mcp.service
+systemctl --user start figma-console-mcp.service
 ```
 
 Operate it with `systemctl --user {status,restart,stop} figma-console-mcp.service` and `journalctl --user -u figma-console-mcp.service -f`.
