@@ -1,4 +1,4 @@
-# figma-console-mcp (podman, read-only, streamable-http)
+# mcp-figma-podman
 
 Hardened podman wrapper around [`southleft/figma-console-mcp`](https://github.com/southleft/figma-console-mcp). Built for enterprise workstations: corporate CAs baked in at build time, container is `--read-only` with no host access, PAT lives in `.env` (chmod 600), exposed only on `127.0.0.1:23148`.
 
