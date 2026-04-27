@@ -2,7 +2,7 @@ services:
   figma-console-mcp:
     image: ghcr.io/trick77/figma-console-mcp:latest
     container_name: figma-console-mcp
-    restart: unless-stopped
+    restart: "no"
     env_file: .env
     ports:
       - "127.0.0.1:23148:8000"
