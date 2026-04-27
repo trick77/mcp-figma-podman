@@ -22,10 +22,9 @@ DropCapability=ALL
 # Resource ceilings for the whole container (mcp-proxy + all spawned node
 # children combined). Tune if you hit OOM kills or "fork failed" in journald.
 PidsLimit=64
-# Healthcheck: mirror the Containerfile HEALTHCHECK so Quadlet/podman pick it
-# up and HealthOnFailure=kill turns "unhealthy" into "exited", which Restart=
-# in [Service] then catches. Without HealthOnFailure, podman marks unhealthy
-# but never restarts.
+# Healthcheck mirrors the Containerfile HEALTHCHECK. HealthOnFailure=kill
+# turns "unhealthy" into "exited" so the unit reports failed instead of
+# silently sitting unhealthy. Restart=no means it stays exited.
 HealthCmd=python3 -c "import socket,sys; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',8000))"
 HealthInterval=30s
 HealthTimeout=3s
@@ -34,11 +33,7 @@ HealthRetries=3
 HealthOnFailure=kill
 
 [Service]
-Restart=always
-RestartSec=5
-# Hard caps. Quadlet passes [Service] through to systemd directly.
-MemoryMax=512M
-MemorySwapMax=0
+Restart=no
 CPUQuota=100%
 TasksMax=128
 
