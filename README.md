@@ -6,9 +6,35 @@ Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.co
 
 ## Using it
 
-Once the service is running and your MCP client (OpenCode, Claude Code, etc.) is wired to `http://127.0.0.1:23148/mcp`, the client auto-discovers the read-only Figma tools via `tools/list` on connect. Drop a Figma URL into the agent prompt and ask for what you want — the agent picks the tool. URLs accepted: `https://www.figma.com/file/<KEY>/...` or `https://www.figma.com/design/<KEY>/...`.
+Paste a Figma file URL (`https://www.figma.com/file/<KEY>/...` or `.../design/<KEY>/...`) into your inference client and tell it what you want. Examples:
 
-Available tools (all read-only): `figma_get_variables`, `figma_get_styles`, `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`, `figma_get_file_data`, `figma_get_file_for_plugin`, `figma_get_design_system_kit`, `figma_check_design_parity`, `figma_generate_component_doc`, `figma_get_status`. Write/Bridge tools are advertised by upstream but fail at call time — see [What does NOT work](#what-does-not-work-by-design).
+```
+Pull all color and spacing variables from
+https://www.figma.com/design/AbC123XyZ/Design-System
+and emit them as a Tailwind theme extension.
+```
+
+```
+List every component in https://www.figma.com/design/AbC123XyZ/Design-System
+whose name contains "Button". For each, give variants and exposed props.
+```
+
+```
+Compare the tokens in https://www.figma.com/design/AbC123XyZ/Design-System
+against src/tokens.css and report drift.
+```
+
+```
+Generate MDX component docs for the Card component in
+https://www.figma.com/design/AbC123XyZ/Design-System.
+```
+
+```
+Dump the full file structure of
+https://www.figma.com/file/AbC123XyZ/Design-System as a tree.
+```
+
+Available read-only tools (the agent picks one per request): `figma_get_variables`, `figma_get_styles`, `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`, `figma_get_file_data`, `figma_get_file_for_plugin`, `figma_get_design_system_kit`, `figma_check_design_parity`, `figma_generate_component_doc`, `figma_get_status`. Write/Bridge tools are advertised but fail at call time — see [What does NOT work](#what-does-not-work-by-design). Tool reference and capability detail: [southleft/figma-console-mcp](https://github.com/southleft/figma-console-mcp).
 
 ## Prerequisites
 
