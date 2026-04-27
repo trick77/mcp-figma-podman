@@ -10,9 +10,9 @@ Paste a Figma file URL (`https://www.figma.com/file/<KEY>/...` or `.../design/<K
 
 ```
 Implement the screen at https://www.figma.com/design/AbC123XyZ/Checkout?node-id=12-345
-as an Angular component, mapping each Figma component instance to the
-matching Suvaux component in libs/suvaux. Match spacing and colors to the
-design tokens from the same file.
+as an Angular component using our internal UX framework, mapping each
+Figma component instance to the matching component in libs/internalux.
+Match spacing and colors to the design tokens from the same file.
 ```
 
 The agent uses this MCP for the Figma side (frames, instances, fills, auto-layout, tokens) and its own file/grep tools for the code side (Angular component APIs in your local repo). This MCP does not read your filesystem.
