@@ -10,12 +10,12 @@ Paste a Figma file URL (`https://www.figma.com/file/<KEY>/...` or `.../design/<K
 
 ```
 Implement the screen at https://www.figma.com/design/AbC123XyZ/Checkout?node-id=12-345
-as an Angular component using our internal UX framework, mapping each
-Figma component instance to the matching component in libs/internalux.
-Match spacing and colors to the design tokens from the same file.
+as an Angular component using our internalUX framework. Map each Figma
+component instance to the matching internalUX component and match spacing
+and colors to the design tokens from the same file.
 ```
 
-The agent uses this MCP for the Figma side (frames, instances, fills, auto-layout, tokens) and its own file/grep tools for the code side (Angular component APIs in your local repo). This MCP does not read your filesystem.
+This MCP only covers the Figma side (frames, instances, fills, auto-layout, tokens). The agent pulls internalUX component documentation from a separate MCP server you wire up alongside this one.
 
 Tool reference and capability detail: [southleft/figma-console-mcp](https://github.com/southleft/figma-console-mcp). Write/Bridge tools are advertised but fail at call time — see [What does NOT work](#what-does-not-work-by-design).
 
