@@ -121,7 +121,7 @@ Port published as `127.0.0.1:23148:8000` in both `compose.yaml` and the Quadlet 
 
 ```sh
 ss -ltn 'sport = :23148'                          # only 127.0.0.1:23148 (and/or [::1]:23148)
-curl -i http://127.0.0.1:23148/mcp                # works from the host
+curl -i http://127.0.0.1:23148/mcp                # 406 = reachable (no Accept header)
 curl -i http://<host-external-ip>:23148/mcp       # connection refused
 ```
 
