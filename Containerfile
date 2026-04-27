@@ -45,9 +45,13 @@ RUN set -eux; \
     test "$(grep -c '() => this\.getDesktopConnector()' src/local.ts)" -ge 1; \
     test "$(grep -c '() => this\.browserManager || null' src/local.ts)" -ge 1; \
     test "$(grep -c 'this\.autoConnectToFigma();' src/local.ts)" -ge 1; \
+    test "$(grep -c 'private async ensureInitialized(): Promise<void> {' src/local.ts)" -eq 1; \
+    test "$(grep -c 'private async getDesktopConnector(): Promise<IFigmaConnector> {' src/local.ts)" -eq 1; \
     sed -i 's|() => this\.getDesktopConnector()|(null as any)|g' src/local.ts; \
     sed -i 's|() => this\.browserManager \|\| null|(null as any)|g' src/local.ts; \
-    sed -i 's|this\.autoConnectToFigma();|/* bridge disabled */|g' src/local.ts
+    sed -i 's|this\.autoConnectToFigma();|/* bridge disabled */|g' src/local.ts; \
+    sed -i 's|private async ensureInitialized(): Promise<void> {|private async ensureInitialized(): Promise<void> { throw new Error("Desktop Bridge disabled in this build");|' src/local.ts; \
+    sed -i 's|private async getDesktopConnector(): Promise<IFigmaConnector> {|private async getDesktopConnector(): Promise<IFigmaConnector> { throw new Error("Desktop Bridge disabled in this build");|' src/local.ts
 
 # Only the local stdio target — `npm run build` also tries the Cloudflare
 # Worker and Vite app targets, which we don't ship and which have upstream TS
