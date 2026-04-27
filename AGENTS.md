@@ -22,7 +22,7 @@ Upstream `dist/local.js` is a stdio-only MCP server. To run it as a long-running
 - Use `Containerfile`, never `Dockerfile`.
 - Use `compose.yaml`, never `docker-compose.yml` / `.yml`. All YAML files use `.yaml`.
 - Invoke `podman` and `podman-compose`. Don't introduce `docker` commands.
-- The image is tagged `localhost/figma-console-mcp:local` *and* `localhost/figma-console-mcp:<VERSION>`. Keep both in sync when changing build logic.
+- `compose.yaml` and the Quadlet unit reference `ghcr.io/trick77/figma-console-mcp:latest`. `build.sh` tags local builds with that name (so a local build shadows the registry image) plus `localhost/figma-console-mcp:local` and `localhost/figma-console-mcp:<VERSION>`. Keep all three in sync when changing build logic.
 - Shell scripts live under `scripts/` and `cd "$(dirname "$0")/.."` so they work from any CWD.
 
 ## Editing the Containerfile

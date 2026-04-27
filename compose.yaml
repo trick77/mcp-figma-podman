@@ -1,6 +1,6 @@
 services:
   figma-console-mcp:
-    image: localhost/figma-console-mcp:local
+    image: ghcr.io/trick77/figma-console-mcp:latest
     container_name: figma-console-mcp
     restart: unless-stopped
     env_file: .env

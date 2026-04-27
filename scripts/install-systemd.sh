@@ -5,8 +5,9 @@
 # Requirements:
 #   - podman >= 4.4 (RHEL 9.3+ is fine)
 #   - systemd --user available
-#   - localhost/figma-console-mcp:local already built (./scripts/build.sh)
 #   - .env filled in (FIGMA_ACCESS_TOKEN at minimum)
+#   - container image will be pulled from ghcr.io on first start, or use
+#     ./scripts/build.sh first to bake corp CAs into a local build
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -24,11 +25,6 @@ fi
 if ! grep -qE '^FIGMA_ACCESS_TOKEN=figd_' "$ENV_FILE"; then
     echo "ERROR: $ENV_FILE has no FIGMA_ACCESS_TOKEN=figd_... line." >&2
     echo "Edit it and re-run. Use a READ-ONLY token (see .env.example)." >&2
-    exit 1
-fi
-
-if ! podman image exists localhost/figma-console-mcp:local; then
-    echo "ERROR: image localhost/figma-console-mcp:local not found. Run ./scripts/build.sh first." >&2
     exit 1
 fi
 

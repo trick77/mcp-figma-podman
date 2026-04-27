@@ -88,6 +88,7 @@ echo ">> Building ${IMAGE_NAME} via ${ENGINE} (anchors: ${HOST_ANCHORS}, version
 $ENGINE build \
     --build-context "hostcerts=${HOST_ANCHORS}" \
     ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"} \
+    -t "ghcr.io/trick77/${IMAGE_NAME}:latest" \
     -t "localhost/${IMAGE_NAME}:local" \
     -t "localhost/${IMAGE_NAME}:${VERSION_TAG}" \
     -f Containerfile \
