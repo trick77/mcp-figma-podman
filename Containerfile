@@ -45,8 +45,8 @@ RUN set -eux; \
     test "$(grep -c '() => this\.getDesktopConnector()' src/local.ts)" -ge 1; \
     test "$(grep -c '() => this\.browserManager || null' src/local.ts)" -ge 1; \
     test "$(grep -c 'this\.autoConnectToFigma();' src/local.ts)" -ge 1; \
-    sed -i 's|() => this\.getDesktopConnector()|undefined|g' src/local.ts; \
-    sed -i 's|() => this\.browserManager \|\| null|undefined|g' src/local.ts; \
+    sed -i 's|() => this\.getDesktopConnector()|(null as any)|g' src/local.ts; \
+    sed -i 's|() => this\.browserManager \|\| null|(null as any)|g' src/local.ts; \
     sed -i 's|this\.autoConnectToFigma();|/* bridge disabled */|g' src/local.ts
 
 # Only the local stdio target — `npm run build` also tries the Cloudflare
