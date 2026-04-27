@@ -6,9 +6,18 @@ Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.co
 
 ## Using it
 
-Once the service is running and your MCP client (OpenCode, Claude Code, etc.) is wired to `http://127.0.0.1:23148/mcp`, the client auto-discovers the read-only Figma tools via `tools/list` on connect. Drop a Figma URL into the agent prompt and ask for what you want — the agent picks the tool. URLs accepted: `https://www.figma.com/file/<KEY>/...` or `https://www.figma.com/design/<KEY>/...`.
+Paste a Figma file URL (`https://www.figma.com/file/<KEY>/...` or `.../design/<KEY>/...`) into your inference client and tell it what you want. Example:
 
-Available tools (all read-only): `figma_get_variables`, `figma_get_styles`, `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`, `figma_get_file_data`, `figma_get_file_for_plugin`, `figma_get_design_system_kit`, `figma_check_design_parity`, `figma_generate_component_doc`, `figma_get_status`. Write/Bridge tools are advertised by upstream but fail at call time — see [What does NOT work](#what-does-not-work-by-design).
+```
+Implement the screen at https://www.figma.com/design/AbC123XyZ/Checkout?node-id=12-345
+as an Angular component using our internalUX framework. Map each Figma
+component instance to the matching internalUX component and match spacing
+and colors to the design tokens from the same file.
+```
+
+This MCP only covers the Figma side (frames, instances, fills, auto-layout, tokens). The agent pulls internalUX component documentation from a separate MCP server you wire up alongside this one.
+
+Tool reference and capability detail: [southleft/figma-console-mcp](https://github.com/southleft/figma-console-mcp). Write/Bridge tools are advertised but fail at call time — see [What does NOT work](#what-does-not-work-by-design).
 
 ## Prerequisites
 
