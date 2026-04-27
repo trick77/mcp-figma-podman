@@ -121,11 +121,13 @@ podman-compose up -d --force-recreate       # or: systemctl --user restart figma
 If you build locally:
 
 ```sh
-./scripts/update.sh v1.22.3                 # any tag from southleft/figma-console-mcp releases
+./scripts/update.sh v1.20.0                 # any tag from southleft/figma-console-mcp releases
 podman-compose up -d --force-recreate       # or: systemctl --user restart figma-console-mcp.service
 ```
 
-`update.sh` writes `VERSION=v1.22.3` into `.env`, rebuilds the image with fresh corporate CAs, and prunes dangling layers. `podman auto-update` is **intentionally not used** — the image is built/pulled on a controlled host, never refreshed at runtime.
+`update.sh` writes `VERSION=v1.20.0` into `.env`, rebuilds the image with fresh corporate CAs, and prunes dangling layers. `podman auto-update` is **intentionally not used** — the image is built/pulled on a controlled host, never refreshed at runtime.
+
+> **Pinned to v1.20.0.** v1.21+ ship a malformed JSON schema for `figma_check_design_parity` (legacy tuple form) that strict LLM providers reject, taking down the entire `tools/list` response. Tracked upstream as [#64](https://github.com/southleft/figma-console-mcp/issues/64). Don't bump past v1.20.0 until that's fixed.
 
 ## What does NOT work (by design)
 

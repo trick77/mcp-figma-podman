@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Update workflow: pin a new upstream tag in .env, rebuild the image.
 # Usage: ./scripts/update.sh <upstream-tag>
-#        ./scripts/update.sh v1.22.3
+#        ./scripts/update.sh v1.20.0
 #
 # Tags come from https://github.com/southleft/figma-console-mcp/releases
-# (use the leading 'v', e.g. v1.22.3 — that's the git tag the Containerfile
+# (use the leading 'v', e.g. v1.20.0 — that's the git tag the Containerfile
 # clones with `--branch`).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <upstream-tag>   (e.g. v1.22.3)" >&2
+    echo "Usage: $0 <upstream-tag>   (e.g. v1.20.0)" >&2
     exit 2
 fi
 
