@@ -139,7 +139,7 @@ Flags are identical in `compose.yaml` and `systemd/figma-console-mcp.container`.
 - `read_only` rootfs; tmpfs mounts at `/tmp` and `/home/node/.figma-console-mcp` discarded on exit.
 - `cap_drop: ALL`, `no-new-privileges`, runs as non-root `node`.
 - No host bind mounts.
-- `cpus=1.0`, `pids_limit=64` on the compose path; Quadlet additionally sets `MemoryMax=512M`, `MemorySwapMax=0`, `CPUQuota=100%`, `TasksMax=128`.
+- `cpus=1.0`, `pids_limit=64` (compose) / `CPUQuota=100%`, `TasksMax=128` (Quadlet).
 - Loopback-only port publish.
 
 ## .env

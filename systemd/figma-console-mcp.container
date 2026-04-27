@@ -36,9 +36,6 @@ HealthOnFailure=kill
 [Service]
 Restart=always
 RestartSec=5
-# Hard caps. Quadlet passes [Service] through to systemd directly.
-MemoryMax=512M
-MemorySwapMax=0
 CPUQuota=100%
 TasksMax=128
 
