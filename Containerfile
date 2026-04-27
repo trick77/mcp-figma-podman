@@ -56,7 +56,7 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
 # MCP wrappers.
 FROM node:22-slim
 
-ARG MCP_PROXY_VERSION=0.10.0
+ARG MCP_PROXY_VERSION=0.11.0
 
 # OCI image metadata. VERSION mirrors the build-stage ARG so a published image
 # carries the upstream tag it was built from. GIT_SHA / IMAGE_SOURCE come from
