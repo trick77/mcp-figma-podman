@@ -34,13 +34,28 @@ podman-compose restart
 podman-compose down
 ```
 
-Rootless Quadlet for boot-time auto-start:
+Rootless Quadlet for boot-time auto-start. If you cloned the repo, run `./scripts/install-systemd.sh` and skip the rest of this section. Standalone (no clone):
 
 ```sh
-./scripts/install-systemd.sh       # one-shot: linger, drop Quadlet, enable
-systemctl --user status figma-console-mcp.service
-journalctl --user -u figma-console-mcp.service -f
+# 1. Create the env file (chmod 600 — it holds the PAT).
+install -m 600 /dev/null ~/.config/figma-console-mcp.env
+$EDITOR ~/.config/figma-console-mcp.env       # FIGMA_ACCESS_TOKEN=figd_...
+
+# 2. Drop the Quadlet unit and point it at that env file.
+mkdir -p ~/.config/containers/systemd
+curl -fsSL https://raw.githubusercontent.com/trick77/mcp-figma-podman/master/systemd/figma-console-mcp.container \
+  | sed "s|__ENV_FILE__|$HOME/.config/figma-console-mcp.env|" \
+  > ~/.config/containers/systemd/figma-console-mcp.container
+
+# 3. Allow this user's systemd to run after logout / on boot.
+sudo loginctl enable-linger "$USER"
+
+# 4. Generate the service from the Quadlet and start it.
+systemctl --user daemon-reload
+systemctl --user enable --now figma-console-mcp.service
 ```
+
+Operate it with `systemctl --user {status,restart,stop} figma-console-mcp.service` and `journalctl --user -u figma-console-mcp.service -f`.
 
 Use **either** podman-compose **or** the Quadlet — not both at once on the same machine, they'd collide on the container name and the published port.
 
@@ -52,7 +67,7 @@ Use **either** podman-compose **or** the Quadlet — not both at once on the sam
 4. mcp-proxy spawns `node /app/dist/local.js` per session with `FIGMA_ACCESS_TOKEN` forwarded from `.env` via `--pass-environment`. The child serves `tools/call`s for the session lifetime.
 5. On client disconnect the child exits; the container stays up.
 
-One client session = one node child. Hard ceilings (`MemoryMax=512M`, `CPUQuota=100%`, `PidsLimit=64`) apply across mcp-proxy and all spawned children.
+One client session = one node child. `CPUQuota=100%` / `TasksMax=128` (Quadlet) and `cpus=1.0` / `pids_limit=64` (compose) apply across mcp-proxy and all spawned children.
 
 ## Updates
 
