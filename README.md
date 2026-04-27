@@ -137,7 +137,7 @@ podman-compose up -d --force-recreate       # or: systemctl --user restart figma
 
 `tools/list` still advertises these — upstream's `dist/local.js` registers its full tool set unconditionally and the wrapper does not filter. They fail at call time:
 
-1. **Bridge tools have no peer.** `figma_execute`, `figma_get_console_logs`, `figma_take_screenshot`, etc. require a Desktop Bridge WebSocket to a running Figma Desktop. The wrapper never starts that listener and the bridge plugin is not in the runtime image.
+1. **Bridge tools have no peer.** `figma_execute`, `figma_get_console_logs`, `figma_take_screenshot`, etc. require a Desktop Bridge WebSocket to a running Figma Desktop. The wrapper never starts that listener, the bridge plugin is not in the runtime image, and the Containerfile strips upstream's bridge wiring at build time so REST-capable tools skip the bridge attempt and go straight to `api.figma.com` without log noise.
 2. **REST writes lack scope.** `figma_create_*`, `figma_post_comment`, `figma_update_*`, etc. hit `api.figma.com` and Figma rejects them 403 because the PAT carries only read scopes.
 
 ## No third-party endpoints
