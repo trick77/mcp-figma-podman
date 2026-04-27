@@ -47,8 +47,9 @@ echo ">> Installed $UNIT_DEST"
 # 4. Reload user systemd so Quadlet generates the .service unit.
 systemctl --user daemon-reload
 
-# 5. Enable + start.
-systemctl --user enable --now figma-console-mcp.service
+# 5. Start. Quadlet-generated services can't be `enable`d — boot-time autostart
+#    is wired by the [Install] WantedBy=default.target in the .container itself.
+systemctl --user start figma-console-mcp.service
 
 echo ">> Status:"
 systemctl --user --no-pager status figma-console-mcp.service || true

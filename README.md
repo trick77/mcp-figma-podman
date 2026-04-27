@@ -1,4 +1,4 @@
-# figma-console-mcp (podman, read-only, streamable-http)
+# mcp-figma-podman
 
 Hardened podman wrapper around [`southleft/figma-console-mcp`](https://github.com/southleft/figma-console-mcp). Built for enterprise workstations: corporate CAs baked in at build time, container is `--read-only` with no host access, PAT lives in `.env` (chmod 600), exposed only on `127.0.0.1:23148`.
 
@@ -50,9 +50,11 @@ curl -fsSL https://raw.githubusercontent.com/trick77/mcp-figma-podman/master/sys
 # 3. Allow this user's systemd to run after logout / on boot.
 sudo loginctl enable-linger "$USER"
 
-# 4. Generate the service from the Quadlet and start it.
+# 4. Generate the service from the Quadlet and start it. Quadlet-generated
+#    units can't be `enable`d — boot-time autostart is wired by the [Install]
+#    section inside the .container file itself.
 systemctl --user daemon-reload
-systemctl --user enable --now figma-console-mcp.service
+systemctl --user start figma-console-mcp.service
 ```
 
 Operate it with `systemctl --user {status,restart,stop} figma-console-mcp.service` and `journalctl --user -u figma-console-mcp.service -f`.
@@ -67,7 +69,7 @@ Use **either** podman-compose **or** the Quadlet — not both at once on the sam
 4. mcp-proxy spawns `node /app/dist/local.js` per session with `FIGMA_ACCESS_TOKEN` forwarded from `.env` via `--pass-environment`. The child serves `tools/call`s for the session lifetime.
 5. On client disconnect the child exits; the container stays up.
 
-One client session = one node child. `CPUQuota=100%` / `TasksMax=128` (Quadlet) and `cpus=1.0` / `pids_limit=64` (compose) apply across mcp-proxy and all spawned children.
+One client session = one node child. `TasksMax=128` (Quadlet) / `pids_limit=64` (compose) apply across mcp-proxy and all spawned children.
 
 ## Updates
 
@@ -154,7 +156,7 @@ Flags are identical in `compose.yaml` and `systemd/figma-console-mcp.container`.
 - `read_only` rootfs; tmpfs mounts at `/tmp` and `/home/node/.figma-console-mcp` discarded on exit.
 - `cap_drop: ALL`, `no-new-privileges`, runs as non-root `node`.
 - No host bind mounts.
-- `cpus=1.0`, `pids_limit=64` (compose) / `CPUQuota=100%`, `TasksMax=128` (Quadlet).
+- `pids_limit=64` (compose) / `TasksMax=128` (Quadlet).
 - Loopback-only port publish.
 
 ## .env
