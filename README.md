@@ -4,6 +4,12 @@ Hardened podman wrapper around [`southleft/figma-console-mcp`](https://github.co
 
 Upstream speaks stdio only; we bundle [`sparfenyuk/mcp-proxy`](https://github.com/sparfenyuk/mcp-proxy) to expose streamable-http so the container can run as a long-lived Quadlet service. Native streamable-http transport tracked upstream in [#48](https://github.com/southleft/figma-console-mcp/issues/48).
 
+## Using it
+
+Once the service is running and your MCP client (OpenCode, Claude Code, etc.) is wired to `http://127.0.0.1:23148/mcp`, the client auto-discovers the read-only Figma tools via `tools/list` on connect. Drop a Figma URL into the agent prompt and ask for what you want — the agent picks the tool. URLs accepted: `https://www.figma.com/file/<KEY>/...` or `https://www.figma.com/design/<KEY>/...`.
+
+Available tools (all read-only): `figma_get_variables`, `figma_get_styles`, `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`, `figma_get_file_data`, `figma_get_file_for_plugin`, `figma_get_design_system_kit`, `figma_check_design_parity`, `figma_generate_component_doc`, `figma_get_status`. Write/Bridge tools are advertised by upstream but fail at call time — see [What does NOT work](#what-does-not-work-by-design).
+
 ## Prerequisites
 
 - `podman` ≥ 4.4
@@ -111,17 +117,6 @@ podman-compose up -d --force-recreate       # or: systemctl --user restart figma
 ```
 
 `update.sh` writes `VERSION=v1.22.3` into `.env`, rebuilds the image with fresh corporate CAs, and prunes dangling layers. `podman auto-update` is **intentionally not used** — the image is built/pulled on a controlled host, never refreshed at runtime.
-
-## What works
-
-Read-only Figma API tools:
-
-- `figma_get_variables`, `figma_get_styles`
-- `figma_get_component`, `figma_get_component_set`, `figma_get_component_usages`
-- `figma_get_file_data`, `figma_get_file_for_plugin`
-- `figma_get_design_system_kit`
-- `figma_check_design_parity`, `figma_generate_component_doc`
-- `figma_get_status`
 
 ## What does NOT work (by design)
 
