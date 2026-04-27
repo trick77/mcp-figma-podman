@@ -101,7 +101,7 @@ jobs:
 
       - name: Open / update PR
         if: steps.decide.outputs.needs_pr == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           # NOTE on the token: the default GITHUB_TOKEN works to OPEN the PR,
           # but PRs created by GITHUB_TOKEN do NOT trigger downstream
@@ -190,7 +190,7 @@ jobs:
 
       - name: Open / update PR
         if: steps.decide.outputs.needs_pr == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.UPSTREAM_PR_TOKEN || secrets.GITHUB_TOKEN }}
           branch: bot/mcp-proxy-bump-${{ steps.latest.outputs.version }}
