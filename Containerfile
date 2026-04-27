@@ -34,6 +34,21 @@ RUN set -eux; \
     fi; \
     git clone --depth 1 --branch "$VERSION" https://github.com/southleft/figma-console-mcp.git .
 
+# Disable Figma Desktop Bridge wiring. The bridge requires a running Figma
+# Desktop reachable at localhost:9222 (CDP) or via a WebSocket plugin — neither
+# is available in this headless container, so every tool call attempted the
+# bridge first, failed, and fell back to REST. We strip the bridge entry points
+# so it goes straight to REST without the noise. Patterns are stable across
+# upstream releases at the v1.20.x line; the build will fail loudly if they
+# disappear (counts asserted below).
+RUN set -eux; \
+    test "$(grep -c '() => this\.getDesktopConnector()' src/local.ts)" -ge 1; \
+    test "$(grep -c '() => this\.browserManager || null' src/local.ts)" -ge 1; \
+    test "$(grep -c 'this\.autoConnectToFigma();' src/local.ts)" -ge 1; \
+    sed -i 's|() => this\.getDesktopConnector()|(null as any)|g' src/local.ts; \
+    sed -i 's|() => this\.browserManager \|\| null|(null as any)|g' src/local.ts; \
+    sed -i 's|this\.autoConnectToFigma();|/* bridge disabled */|g' src/local.ts
+
 # Only the local stdio target — `npm run build` also tries the Cloudflare
 # Worker and Vite app targets, which we don't ship and which have upstream TS
 # errors we shouldn't try to fix from a wrapper repo.
