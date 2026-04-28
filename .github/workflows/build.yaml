@@ -15,7 +15,7 @@ env:
   # (legacy tuple form `[{type:'number'},{type:'number'}]`) that strict LLM
   # providers reject, taking the entire tools/list down with it. Tracked
   # upstream as southleft/figma-console-mcp#64. Bump only after that fix lands.
-  UPSTREAM_VERSION: v1.20.0
+  UPSTREAM_VERSION: v1.22.3
 
 jobs:
   build-test-publish:
